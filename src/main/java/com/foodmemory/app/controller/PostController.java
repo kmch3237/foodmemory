@@ -8,6 +8,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
@@ -36,6 +37,26 @@ public class PostController {
         model.addAttribute("posts", posts);
         model.addAttribute("uploadUrlPrefix", uploadUrlPrefix);
         return "post/list";
+    }
+
+    /**
+     * 상세 화면.
+     *
+     * @PathVariable 은 주소에 들어 있는 값을 꺼낸다.
+     *   /posts/12  →  postId = 12
+     *
+     * 주소로 값을 넘기는 이유:
+     *   이 주소 자체가 "12번 게시물"이라는 자원을 가리키므로, 링크를 공유하거나
+     *   북마크할 수 있다. 검색 조건처럼 부가적인 값은 ?key=value 로 넘긴다.
+     *
+     * /posts/new 와 /posts/{postId} 가 겹치지 않는 이유는
+     * Spring 이 고정된 경로를 변수 경로보다 먼저 확인하기 때문이다.
+     */
+    @GetMapping("/posts/{postId}")
+    public String detail(@PathVariable Long postId, Model model) {
+        model.addAttribute("post", postService.getDetail(postId));
+        model.addAttribute("uploadUrlPrefix", uploadUrlPrefix);
+        return "post/detail";
     }
 
     /** 업로드 폼 화면 */

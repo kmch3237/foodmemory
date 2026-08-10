@@ -1,6 +1,8 @@
 package com.foodmemory.app.service;
 
 import com.foodmemory.app.common.FileStorage;
+import com.foodmemory.app.common.NotFoundException;
+import com.foodmemory.app.dto.PostDetailResponse;
 import com.foodmemory.app.dto.PostListResponse;
 import com.foodmemory.app.entity.Member;
 import com.foodmemory.app.entity.Photo;
@@ -66,6 +68,30 @@ public class PostServiceImpl implements PostService {
     }
 
     /**
+     * 게시물 한 건을 사진 전체와 함께 가져온다.
+     *
+     * 없는 게시물을 요청하면 예외를 던진다.
+     * 여기서 null 을 돌려주면 화면에서 다시 검사해야 하고, 빠뜨리면 엉뚱한 곳에서 터진다.
+     * 조회 실패는 조회한 자리에서 드러내는 편이 원인을 찾기 쉽다.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public PostDetailResponse getDetail(Long postId) {
+        // 쿼리 1 — 게시물 + 작성자 + 식당
+        Post post = postRepository.findDetailById(postId)
+                .orElseThrow(() -> new NotFoundException("존재하지 않는 게시물입니다."));
+
+        // 쿼리 2 — 사진 전체. 목록과 달리 상세는 전부 필요하다.
+        List<String> photoPaths = photoRepository
+                .findByPostPostIdOrderByPhotoIdAsc(postId)
+                .stream()
+                .map(Photo::getFilePath)
+                .toList();
+
+        return PostDetailResponse.from(post, photoPaths);
+    }
+
+    /**
      * 게시물과 사진을 함께 저장한다.
      *
      * @Transactional 이 붙어 있으므로 중간에 예외가 나면 게시물과 사진 저장이 모두 취소된다.
@@ -84,8 +110,14 @@ public class PostServiceImpl implements PostService {
         Member writer = memberRepository.findAll().stream().findFirst()
                 .orElseThrow(() -> new IllegalStateException("회원이 없습니다. 먼저 회원을 만들어 주세요."));
 
+        // 폼에서 코멘트를 비워두면 null 이 아니라 빈 문자열("")이 넘어온다.
+        // MySQL 에서는 ''와 NULL 이 서로 다른 값이라, 그대로 저장하면
+        // "코멘트 없음" 을 판단할 때 두 경우를 모두 검사해야 한다.
+        // 저장 전에 한 번 정리해서 DB 에는 NULL 만 들어가게 한다.
+        String normalizedContent = (content == null || content.isBlank()) ? null : content.trim();
+
         // 식당은 아직 지도 API 를 붙이지 않아 null 로 둔다.
-        Post post = postRepository.save(Post.create(writer, null, content, eatenDate));
+        Post post = postRepository.save(Post.create(writer, null, normalizedContent, eatenDate));
 
         for (MultipartFile file : photos) {
             if (file.isEmpty()) {

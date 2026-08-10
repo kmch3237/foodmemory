@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>기록 상세</title>
+</head>
+<body>
+
+<h1>기록 상세</h1>
+
+<!-- 목록과 달리 사진을 전부 보여준다 -->
+<div th:each="path : ${post.photoPaths}">
+    <img th:src="@{${uploadUrlPrefix} + '/' + ${path}}" alt="음식 사진" width="400">
+</div>
+
+<p th:if="${#lists.isEmpty(post.photoPaths)}">사진이 없습니다.</p>
+
+<hr>
+
+<p>
+    <strong th:text="${post.writerNickname}">닉네임</strong>
+    <span th:text="${#temporals.format(post.eatenDate, 'yyyy년 M월 d일 HH:mm')}">날짜</span>
+</p>
+
+<!-- 코멘트는 없을 수 있다. 사진만으로도 완결된 기록이다 -->
+<p th:if="${!#strings.isEmpty(post.content)}" th:text="${post.content}">코멘트</p>
+
+<!-- 식당도 없을 수 있다. 집에서 먹었거나 위치를 찾지 못한 경우다 -->
+<div th:if="${post.restaurantName != null}">
+    <p th:text="${post.restaurantName}">식당 이름</p>
+    <p th:text="${post.restaurantAddress}">주소</p>
+</div>
+
+<hr>
+
+<p><a th:href="@{/}">갤러리로 돌아가기</a></p>
+
+</body>
+</html>

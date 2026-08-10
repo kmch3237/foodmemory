@@ -21,4 +21,15 @@ public interface PhotoRepository extends JpaRepository<Photo, Long> {
      */
     @Query("select ph from Photo ph where ph.post.postId in :postIds order by ph.photoId asc")
     List<Photo> findByPostIds(@Param("postIds") List<Long> postIds);
+
+    /**
+     * 게시물 한 건의 사진을 올린 순서대로 가져온다.
+     *
+     * 메서드 이름으로 쿼리가 만들어지는 방식이다.
+     *   findBy PostPostId       →  where photo.post.post_id = ?
+     *   OrderBy PhotoIdAsc      →  order by photo_id asc
+     *
+     * photo_id 오름차순이 곧 업로드 순서다. 별도의 순서 컬럼을 두지 않은 이유이기도 하다.
+     */
+    List<Photo> findByPostPostIdOrderByPhotoIdAsc(Long postId);
 }

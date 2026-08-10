@@ -27,14 +27,17 @@
             최종     /uploads/2026/08/3f8c1e9a.jpg
           접두사를 DB에 넣지 않았기 때문에, 나중에 S3로 옮겨도 설정만 바꾸면 된다.
         -->
-        <div th:if="${post.thumbnailPath != null}">
-            <img th:src="@{${uploadUrlPrefix} + '/' + ${post.thumbnailPath}}"
+        <!-- th:href 로 상세 화면 주소를 만든다. @{/posts/{id}(id=...)} 형태로 값을 끼워 넣는다 -->
+        <a th:href="@{/posts/{id}(id=${post.postId})}">
+            <img th:if="${post.thumbnailPath != null}"
+                 th:src="@{${uploadUrlPrefix} + '/' + ${post.thumbnailPath}}"
                  alt="음식 사진" width="200">
-        </div>
+            <span th:if="${post.thumbnailPath == null}">[사진 없음]</span>
+        </a>
 
         <strong th:text="${post.writerNickname}">닉네임</strong>
         <span th:text="${#temporals.format(post.eatenDate, 'yyyy-MM-dd HH:mm')}">날짜</span>
-        <span th:text="${post.content}">코멘트</span>
+        <span th:if="${!#strings.isEmpty(post.content)}" th:text="${post.content}">코멘트</span>
         <span th:if="${post.restaurantName != null}"
               th:text="'@ ' + ${post.restaurantName}">식당</span>
     </li>
