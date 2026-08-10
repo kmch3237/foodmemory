@@ -1,0 +1,56 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '3.5.3'
+	id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.foodmemory'
+version = '0.0.1-SNAPSHOT'
+description = '음식 추억 기록 서비스'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	// 웹 요청/응답 처리, 내장 톰캣, @Controller
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+
+	// JPA + Hibernate + Spring Data Repository
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+
+	// HTML 템플릿 엔진
+	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+
+	// getter/setter 등을 컴파일 시점에 생성한다.
+	// compileOnly  : 컴파일할 때만 필요 (실행 시에는 이미 코드가 만들어져 있음)
+	// annotationProcessor : @Getter 같은 어노테이션을 읽고 실제 코드를 만들어 넣는 역할
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+
+	// 코드를 고치면 서버를 자동으로 재시작한다. 배포본에는 포함되지 않는다.
+	developmentOnly 'org.springframework.boot:spring-boot-devtools'
+
+	// MySQL 접속 드라이버.
+	// 우리 코드에서 직접 부르지 않고 JPA가 사용하므로 runtimeOnly.
+	runtimeOnly 'com.mysql:mysql-connector-j'
+
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}

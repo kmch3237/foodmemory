@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>기록 올리기</title>
+</head>
+<body>
+
+<h1>기록 올리기</h1>
+
+<!-- 등록에 실패했을 때 이유를 보여준다 -->
+<p th:if="${error}" th:text="${error}">오류 메시지</p>
+
+<!--
+  enctype="multipart/form-data" 가 반드시 있어야 한다.
+  이게 없으면 파일 내용은 서버로 전송되지 않고 파일 이름만 문자열로 넘어간다.
+  파일 업로드가 안 될 때 가장 먼저 확인하는 부분이다.
+
+  method="post" 인 이유는 서버의 상태를 바꾸는 요청이기 때문이다.
+  조회는 GET, 등록·수정·삭제는 POST 로 구분한다.
+-->
+<form th:action="@{/posts}" method="post" enctype="multipart/form-data">
+
+    <p>
+        <label>사진 (여러 장 선택 가능)</label><br>
+        <!-- multiple 을 붙이면 파일을 여러 개 고를 수 있다 -->
+        <input type="file" name="photos" accept="image/*" multiple required>
+    </p>
+
+    <p>
+        <label>먹은 날짜</label><br>
+        <!-- datetime-local 은 날짜와 시각을 함께 입력받는다 -->
+        <input type="datetime-local" name="eatenDate" required>
+    </p>
+
+    <p>
+        <label>코멘트 (선택)</label><br>
+        <!-- 코멘트는 필수가 아니다. 사진만으로도 완결된 기록이다 -->
+        <textarea name="content" rows="3" cols="40" maxlength="500"></textarea>
+    </p>
+
+    <button type="submit">올리기</button>
+</form>
+
+<p><a th:href="@{/}">갤러리로 돌아가기</a></p>
+
+</body>
+</html>
