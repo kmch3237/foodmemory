@@ -99,4 +99,18 @@ public class Post extends BaseEntity {
         post.isPublic = false;
         return post;
     }
+
+    /**
+     * 먹은 장소를 지정한다.
+     *
+     * setter 를 열지 않고 이런 메서드를 두는 이유는 '무엇을 하는 변경인지' 가
+     * 코드에 남기 때문이다. setRestaurant 보다 assignRestaurant 가 의도를 드러낸다.
+     *
+     * 이 메서드로 값을 바꾸면 UPDATE 문을 직접 쓰지 않아도 DB 에 반영된다.
+     * 영속성 컨텍스트가 트랜잭션이 끝날 때 값이 바뀐 것을 감지해 UPDATE 를 만들어 보낸다.
+     * 이를 변경 감지(더티 체킹)라고 한다.
+     */
+    public void assignRestaurant(Restaurant restaurant) {
+        this.restaurant = restaurant;
+    }
 }

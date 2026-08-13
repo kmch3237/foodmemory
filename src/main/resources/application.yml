@@ -51,6 +51,35 @@ spring:
     # 운영에서는 true 로 두어야 매번 파일을 다시 읽지 않는다.
     cache: false
 
+# ── 톰캣 · 세션 ───────────────────────────────────────────────
+# spring.servlet 이 아니라 server.servlet 아래라는 점을 헷갈리기 쉽다.
+#   spring.servlet.multipart  → 업로드 제한 (스프링이 처리)
+#   server.servlet.session    → 세션 (톰캣이 처리)
+# 잘못된 자리에 적어도 오류가 나지 않고 조용히 무시된다.
+server:
+  servlet:
+    session:
+      # 세션 ID 를 쿠키로만 주고받는다.
+      #
+      # 이 설정이 없으면 톰캣이 쿠키를 못 쓰는 브라우저를 대비해
+      # 주소 뒤에 ;jsessionid=... 를 붙이는 방식을 함께 쓴다.
+      # 그러면 세션 ID 가 브라우저 기록, 서버 접근 로그, 그리고 다른 사이트로
+      # 넘어가는 Referer 헤더에까지 남는다. 그 값 하나면 남의 로그인 상태를 그대로 쓸 수 있다.
+      tracking-modes: cookie
+
+      cookie:
+        # 자바스크립트에서 이 쿠키를 읽지 못하게 한다.
+        # 화면에 악성 스크립트가 끼어들어도 세션 ID 를 훔쳐 나갈 수 없다.
+        http-only: true
+
+        # 다른 사이트에서 우리 사이트로 보내는 요청에는 쿠키를 붙이지 않는다.
+        # 사용자가 모르는 사이에 요청이 대신 보내지는 것(CSRF)을 막는다.
+        same-site: lax
+
+        # secure: true 는 HTTPS 에서만 쿠키를 보내라는 뜻이라 지금은 켜지 않는다.
+        # 로컬 개발은 http 라서 켜면 로그인 자체가 되지 않는다. 배포할 때 켠다.
+
+
 # ── 로그 ──────────────────────────────────────────────────────
 # JPA 가 실제로 어떤 SQL 을 만들어 보내는지 콘솔에서 볼 수 있게 한다.
 # JPA 를 배우는 동안에는 반드시 켜둔다. N+1 문제도 이걸로 발견한다.
@@ -62,6 +91,36 @@ logging:
 # ── 이 애플리케이션만의 설정 ────────────────────────────────────
 # spring 으로 시작하지 않는 것은 Spring 이 정한 것이 아니라 우리가 만든 설정이다.
 app:
+  # 카카오 REST API 키.
+  # 값을 여기에 직접 적으면 깃에 그대로 올라가므로 환경변수로만 받는다.
+  # 실행 전에 터미널에서 export KAKAO_REST_API_KEY=... 를 해둔다.
+  # 기본값을 빈 문자열로 둔 이유는, 키가 없어도 앱은 뜨고 식당 검색만 건너뛰게 하기 위해서다.
+  kakao:
+    rest-api-key: ${KAKAO_REST_API_KEY:}
+    search-radius: 200   # 좌표 주변 몇 미터까지 검색할지
+
+  # 소셜 로그인.
+  #
+  # 값을 여기에 직접 적지 않는 이유는 지도 API 키와 같다. 깃에 그대로 올라간다.
+  # client-secret 은 특히 중요하다. 이 값이 있으면 남이 우리 앱인 척하고
+  # 사용자 정보를 받아갈 수 있다.
+  #
+  # redirect-uri 는 제공자 콘솔에 등록한 주소와 글자 하나까지 같아야 한다.
+  # 다르면 제공자가 요청을 거부한다. 흔히 겪는 실수라서 기본값을 적어둔다.
+  oauth:
+    kakao:
+      # 지도 API 와 같은 REST API 키를 쓴다. 카카오는 앱 하나에 키가 하나다.
+      client-id: ${KAKAO_REST_API_KEY:}
+      # 콘솔에서 [카카오 로그인] > [보안] 의 Client Secret 을 켰을 때만 필요하다.
+      client-secret: ${KAKAO_CLIENT_SECRET:}
+      redirect-uri: ${KAKAO_REDIRECT_URI:http://localhost:8080/oauth/kakao/callback}
+
+    google:
+      client-id: ${GOOGLE_CLIENT_ID:}
+      # 구글은 이 값이 항상 필요하다.
+      client-secret: ${GOOGLE_CLIENT_SECRET:}
+      redirect-uri: ${GOOGLE_REDIRECT_URI:http://localhost:8080/oauth/google/callback}
+
   upload:
     # 실제 파일이 저장될 폴더. 환경마다 다르므로 환경변수로 뺄 수 있게 해둔다.
     # 나중에 S3 로 바꾸면 이 값 대신 버킷 정보가 들어간다.

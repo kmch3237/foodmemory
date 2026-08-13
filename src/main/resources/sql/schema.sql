@@ -15,14 +15,25 @@
 -- IF EXISTS 를 붙이면 테이블이 없어도 에러가 나지 않는다.
 -- 개발 중에 이 스크립트를 반복 실행하기 위한 장치다.
 
-DROP TABLE IF EXISTS photo;       -- post 를 참조하므로 가장 먼저
-DROP TABLE IF EXISTS post;        -- member, restaurant 를 참조
-DROP TABLE IF EXISTS restaurant;  -- 아무것도 참조하지 않음
-DROP TABLE IF EXISTS member;      -- 아무것도 참조하지 않음
+DROP TABLE IF EXISTS photo;            -- post 를 참조하므로 가장 먼저
+DROP TABLE IF EXISTS post;             -- member, restaurant 를 참조
+DROP TABLE IF EXISTS member_identity;  -- member 를 참조
+DROP TABLE IF EXISTS restaurant;       -- 아무것도 참조하지 않음
+DROP TABLE IF EXISTS member;           -- 아무것도 참조하지 않음
 
 
 -- ============================================================
---  2. member  (회원)
+--  2. member  (회원 = 사람 한 명)
+-- ============================================================
+--  이 테이블에는 '로그인하는 방법' 이 없다. 그건 member_identity 가 맡는다.
+--
+--  나눈 이유:
+--    한 사람이 카카오로도 들어오고 구글로도 들어올 수 있다.
+--    로그인 수단을 이 테이블에 두면 그때마다 다른 회원이 되어 사진첩이 쪼개진다.
+--    "사람" 과 "그 사람이 들어오는 문" 은 개수가 다르므로 테이블도 나눈다.
+--
+--  post 는 계속 member_id 만 바라본다.
+--  로그인 수단이 늘어나도 게시물의 주인은 흔들리지 않는다.
 -- ============================================================
 CREATE TABLE member (
 
@@ -31,16 +42,6 @@ CREATE TABLE member (
     -- BIGINT 인 이유: PK 타입을 나중에 늘리는 것이 더 비싸서 처음부터 크게 잡는다.
     member_id         BIGINT        NOT NULL AUTO_INCREMENT  COMMENT '회원 식별자',
 
-    -- 어느 소셜에서 왔는지. kakao / google / naver
-    -- 코드 테이블로 빼지 않고 컬럼 + 자바 enum 으로 관리한다.
-    -- 제공자 추가는 연동 코드 작성이 동반되므로 '데이터만 추가' 이점이 없기 때문.
-    provider          VARCHAR(20)   NOT NULL                 COMMENT '소셜 제공자',
-
-    -- 제공자가 매긴 회원 번호.
-    -- VARCHAR 인 이유: 카카오는 숫자지만 구글(21자리)과 애플은 문자열을 준다.
-    --                 계산하지 않는 숫자는 문자열로 저장한다.
-    provider_user_id  VARCHAR(100)  NOT NULL                 COMMENT '제공자가 매긴 사용자 ID',
-
     -- 화면 표시용 이름. 중복을 허용한다.
     -- UNIQUE 를 걸면 소셜이 던져준 닉네임이 겹칠 때 가입이 실패한다.
     -- 고유 식별자가 필요해지면(공유 기능) handle 컬럼을 따로 추가한다.
@@ -48,7 +49,19 @@ CREATE TABLE member (
 
     -- NULL 을 허용하는 이유: 제공자가 이메일을 주지 않을 수 있다.
     -- NOT NULL 로 걸면 '이메일 동의 안 한 사람은 가입 불가' 라는 정책 선언이 된다.
-    email             VARCHAR(255)  NULL                     COMMENT '이메일 (제공자가 주면 저장)',
+    email             VARCHAR(255)  NULL                     COMMENT '대표 이메일',
+
+    -- 이용약관·개인정보 처리방침에 동의한 시각.
+    --
+    -- BOOLEAN 이 아니라 DATETIME 인 이유:
+    --   "동의했다" 만 남기면 언제 동의했는지 알 수 없다.
+    --   약관을 개정하면 "새 약관 이후에 동의한 사람" 과 "다시 받아야 할 사람" 을
+    --   갈라내야 하는데, 시각이 없으면 전원에게 다시 받는 수밖에 없다.
+    --   동의 기록은 분쟁이 생겼을 때 근거가 되므로 시점이 중요하다.
+    --
+    -- 사람 단위의 동의라 member 에 둔다. 로그인 수단을 하나 더 연결한다고
+    -- 약관에 다시 동의해야 하는 것은 아니다.
+    terms_agreed_at   DATETIME      NULL                     COMMENT '약관 동의 시각',
 
     created_at        DATETIME      NOT NULL                 COMMENT '가입 시각',
 
@@ -56,17 +69,80 @@ CREATE TABLE member (
     -- NULL 이 섞이면 '최근 수정순 정렬' 같은 조회에서 매번 NULL 처리를 해야 한다.
     updated_at        DATETIME      NOT NULL                 COMMENT '마지막 수정 시각',
 
-    PRIMARY KEY (member_id),
-
-    -- 같은 소셜 계정으로 두 번 가입하는 것을 막는다.
-    -- 둘 중 하나만으로는 회원이 특정되지 않는다.
-    -- (카카오 12345 와 구글 12345 는 서로 다른 사람이다)
-    -- 이 제약이 없으면 한 사람의 사진첩이 두 계정으로 쪼개진다.
-    UNIQUE KEY uk_member_provider (provider, provider_user_id)
+    PRIMARY KEY (member_id)
 
 ) ENGINE=InnoDB
   DEFAULT CHARSET=utf8mb4   -- utf8 은 3바이트라 이모지가 저장되지 않는다
   COMMENT='회원';
+
+
+-- ============================================================
+--  2-1. member_identity  (로그인 수단)
+-- ============================================================
+--  한 회원(member) 밑에 여러 줄이 달린다.
+--
+--    member 17 (강명철)
+--      ├─ KAKAO  5037008413
+--      ├─ GOOGLE 109628478545752180304
+--      └─ LOCAL  kmch@example.com  + 비밀번호 해시
+--
+--  어느 줄로 들어와도 도착하는 곳은 같은 member_id 이므로 사진첩이 하나다.
+-- ============================================================
+CREATE TABLE member_identity (
+
+    identity_id       BIGINT        NOT NULL AUTO_INCREMENT  COMMENT '로그인 수단 식별자',
+
+    member_id         BIGINT        NOT NULL                 COMMENT '이 수단이 속한 회원',
+
+    -- KAKAO / GOOGLE / LOCAL
+    -- 자바 enum 이름을 그대로 저장하므로 대문자다.
+    -- 순서 번호(0,1,2)로 저장하지 않는 이유는 Member 엔티티 주석에 적어두었다.
+    -- 코드 테이블로 빼지 않고 컬럼 + 자바 enum 으로 관리한다.
+    -- 제공자 추가는 연동 코드 작성이 동반되므로 '데이터만 추가' 이점이 없기 때문.
+    provider          VARCHAR(20)   NOT NULL                 COMMENT 'KAKAO/GOOGLE/LOCAL',
+
+    -- 그 세계에서의 신분증.
+    --   KAKAO  → 카카오가 매긴 회원 번호
+    --   GOOGLE → 구글이 준 sub 값
+    --   LOCAL  → 이메일. 자체 가입은 이메일이 곧 로그인 아이디다
+    --
+    -- VARCHAR 인 이유: 카카오는 숫자지만 구글(21자리)과 애플은 문자열을 준다.
+    --                 계산하지 않는 숫자는 문자열로 저장한다.
+    provider_user_id  VARCHAR(100)  NOT NULL                 COMMENT '제공자가 매긴 ID (LOCAL 은 이메일)',
+
+    -- 자체 가입의 비밀번호. 소셜은 비밀번호가 없으므로 NULL 이다.
+    --
+    -- 길이가 60 인 이유: BCrypt 결과는 알고리즘·비용·솔트·해시가 합쳐져 항상 60자다.
+    -- 원문을 저장하지 않는 이유: DB 가 유출되면 그대로 남의 계정이 된다.
+    --   사람들은 다른 사이트에서도 같은 비밀번호를 쓰기 때문에 피해가 여기서 끝나지 않는다.
+    -- 해시는 단방향이라 저장된 값에서 원문을 되돌릴 수 없다.
+    --   로그인할 때는 입력값을 같은 방식으로 해싱해 저장된 값과 비교한다.
+    password_hash     VARCHAR(60)   NULL                     COMMENT 'BCrypt 해시 (LOCAL 만)',
+
+    created_at        DATETIME      NOT NULL                 COMMENT '연결 시각',
+    updated_at        DATETIME      NOT NULL                 COMMENT '마지막 수정 시각',
+
+    PRIMARY KEY (identity_id),
+
+    -- 같은 소셜 계정이 두 회원에게 붙는 것을 막는다.
+    -- 둘 중 하나만으로는 특정되지 않는다.
+    -- (카카오 12345 와 구글 12345 는 서로 다른 사람이다)
+    --
+    -- 자체 가입에도 그대로 쓸모가 있다. provider='LOCAL' 이고 provider_user_id 가
+    -- 이메일이므로, 같은 이메일로 두 번 가입하는 것이 이 제약 하나로 막힌다.
+    UNIQUE KEY uk_identity_provider (provider, provider_user_id),
+
+    -- 한 회원이 같은 제공자를 두 번 연결하지 못하게 한다.
+    -- 카카오 계정을 두 개 붙이면 어느 쪽이 대표인지 정할 수 없고,
+    -- 하나를 해제할 때 어느 것을 지울지도 애매해진다.
+    UNIQUE KEY uk_identity_member_provider (member_id, provider),
+
+    CONSTRAINT fk_identity_member
+        FOREIGN KEY (member_id) REFERENCES member (member_id)
+
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COMMENT='회원의 로그인 수단';
 
 
 -- ============================================================

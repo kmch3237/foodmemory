@@ -1,5 +1,6 @@
 package com.foodmemory.app.common;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
@@ -18,6 +19,7 @@ import java.util.UUID;
  * 서버의 로컬 폴더에 파일을 저장하는 구현체.
  * 개발 단계에서 사용하고, 배포 시점에 S3 구현으로 교체한다.
  */
+@Slf4j
 @Component
 public class LocalFileStorage implements FileStorage {
 
@@ -62,6 +64,41 @@ public class LocalFileStorage implements FileStorage {
 
         // DB 에 저장될 값. 폴더 위치도 도메인도 포함하지 않는다.
         return relativePath;
+    }
+
+    @Override
+    public Path resolve(String relativePath) {
+        return root.resolve(relativePath);
+    }
+
+    @Override
+    public boolean delete(String relativePath) {
+        try {
+            Path target = root.resolve(relativePath).normalize();
+
+            /*
+             * 지우려는 경로가 정말 업로드 폴더 안인지 확인한다.
+             *
+             * DB 에 들어 있는 값을 그대로 믿지 않는 이유:
+             *   경로에 ../../ 가 섞여 있으면 root.resolve 는 폴더 밖을 가리키게 된다.
+             *   그 상태로 삭제하면 서버의 엉뚱한 파일이 지워진다.
+             *   지금은 저장할 때 서버가 경로를 만들지만, 나중에 다른 경로가 들어올
+             *   길이 생겼을 때 이 한 줄이 남아 있으면 사고가 나지 않는다.
+             */
+            if (!target.startsWith(root)) {
+                log.warn("업로드 폴더 밖의 경로는 삭제하지 않습니다: {}", relativePath);
+                return false;
+            }
+
+            // deleteIfExists 는 파일이 없어도 예외를 던지지 않는다.
+            // 이미 지워진 파일을 다시 지우려는 상황은 오류가 아니다.
+            return Files.deleteIfExists(target);
+
+        } catch (IOException e) {
+            // 던지지 않고 기록만 남긴다. 이유는 FileStorage 인터페이스에 적어두었다.
+            log.warn("파일 삭제에 실패했습니다: {}", relativePath, e);
+            return false;
+        }
     }
 
     private String extractExtension(String originalFilename) {

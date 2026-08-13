@@ -62,4 +62,21 @@ public class Restaurant extends BaseEntity {
 
     @Column(nullable = false, precision = 10, scale = 7)
     private BigDecimal longitude;
+
+    /**
+     * 지도 API 에서 받은 정보로 식당을 만든다.
+     *
+     * 우리가 만들어내는 데이터가 아니라 외부에서 받아 보관하는 사본이다.
+     * 그래서 값을 검증하거나 가공하지 않고 받은 그대로 저장한다.
+     */
+    public static Restaurant from(String placeId, String name, String address,
+                                  BigDecimal latitude, BigDecimal longitude) {
+        Restaurant restaurant = new Restaurant();
+        restaurant.placeId = placeId;
+        restaurant.name = name;
+        restaurant.address = address;
+        restaurant.latitude = latitude;
+        restaurant.longitude = longitude;
+        return restaurant;
+    }
 }

@@ -3,6 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <title>기록 상세</title>
+    <style>
+        /*
+          사진마다 원본 비율이 제각각이라 그대로 두면 화면이 들쭉날쭉해진다.
+          통일하는 방법은 세 가지가 있다.
+
+            늘리기          비율이 깨져서 음식이 찌그러진다
+            여백 채우기      크기는 맞지만 위아래에 빈 공간이 생긴다
+            잘라내서 채우기   비율을 유지하면서 넘치는 부분만 자른다  ← 이걸 쓴다
+
+          aspect-ratio 로 틀의 비율을 4:3 으로 고정하고,
+          object-fit: cover 로 그 틀을 가득 채우되 넘치는 부분은 잘라낸다.
+        */
+        .photo {
+            display: block;
+            width: 100%;
+            max-width: 640px;
+            aspect-ratio: 4 / 3;
+            object-fit: cover;
+            margin-bottom: 8px;
+        }
+    </style>
 </head>
 <body>
 
@@ -10,7 +31,7 @@
 
 <!-- 목록과 달리 사진을 전부 보여준다 -->
 <div th:each="path : ${post.photoPaths}">
-    <img th:src="@{${uploadUrlPrefix} + '/' + ${path}}" alt="음식 사진" width="400">
+    <img class="photo" th:src="@{${uploadUrlPrefix} + '/' + ${path}}" alt="음식 사진">
 </div>
 
 <p th:if="${#lists.isEmpty(post.photoPaths)}">사진이 없습니다.</p>
@@ -31,7 +52,30 @@
     <p th:text="${post.restaurantAddress}">주소</p>
 </div>
 
+<!--
+  식당이 아직 지정되지 않았고 본인 기록일 때만 보여준다.
+  남의 기록에 식당을 지정할 수는 없으므로 버튼을 띄울 이유가 없다.
+-->
+<p th:if="${post.restaurantName == null and loginMember != null and loginMember.memberId == post.writerId}">
+    <a th:href="@{/posts/{id}/restaurants(id=${post.postId})}">사진 위치로 식당 찾기</a>
+</p>
+
 <hr>
+
+<!--
+  삭제 버튼은 본인 기록에만 보인다.
+  다만 버튼을 감추는 것은 편의일 뿐이고, 실제 차단은 서버가 한다.
+  버튼이 없어도 주소로 직접 요청을 보낼 수 있기 때문이다.
+
+  onclick 으로 한 번 더 묻는 이유:
+    삭제는 되돌릴 수 없다. 실수로 눌렀을 때 되돌릴 방법이 없으므로 확인을 받는다.
+-->
+<form th:if="${loginMember != null and loginMember.memberId == post.writerId}"
+      th:action="@{/posts/{id}/delete(id=${post.postId})}"
+      method="post"
+      onsubmit="return confirm('이 기록을 삭제할까요? 사진도 함께 지워지며 되돌릴 수 없습니다.');">
+    <button type="submit">기록 삭제</button>
+</form>
 
 <p><a th:href="@{/}">갤러리로 돌아가기</a></p>
 

@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>일시적인 오류</title>
+</head>
+<body>
+<h1>지금은 처리할 수 없습니다</h1>
+<p th:text="${message}">잠시 후 다시 시도해주세요.</p>
+<p><a th:href="@{/}">갤러리로 돌아가기</a></p>
+</body>
+</html>
