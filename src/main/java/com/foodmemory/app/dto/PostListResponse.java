@@ -20,7 +20,7 @@ public record PostListResponse(
         String content,
         LocalDateTime eatenDate,
         String writerNickname,
-        String restaurantName,
+        String placeName,
         String thumbnailPath   // 대표 사진의 상대 경로. 사진이 없으면 null
 ) {
 
@@ -37,8 +37,8 @@ public record PostListResponse(
                 post.getContent(),
                 post.getEatenDate(),
                 post.getMember().getNickname(),
-                // 식당은 없을 수 있다. NULL 을 허용한 컬럼이므로 여기서 반드시 확인한다
-                post.getRestaurant() != null ? post.getRestaurant().getName() : null,
+                // 장소는 없을 수 있다. NULL 을 허용한 컬럼이므로 여기서 반드시 확인한다
+                post.getPlace() != null ? post.getPlace().getName() : null,
                 thumbnailPath
         );
     }

@@ -1,68 +1,64 @@
 <!DOCTYPE html>
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>회원가입</title>
-    <style>
-        body { max-width: 360px; margin: 0 auto; padding: 24px 16px;
-               font-family: -apple-system, "Apple SD Gothic Neo", sans-serif; }
-        label { display: block; margin-top: 12px; font-size: 14px; }
-        input { width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box; }
-        button { width: 100%; padding: 10px; margin-top: 16px; cursor: pointer; }
-        .error { color: #c00; font-size: 14px; margin-top: 12px; }
-        .hint { color: #888; font-size: 12px; margin-top: 4px; }
-        .sub { margin-top: 20px; font-size: 14px; text-align: center; }
-        .terms { margin-top: 24px; border-top: 1px solid #eee; padding-top: 16px; }
-        .terms label { display: block; margin-top: 10px; font-size: 14px; }
-        .terms input { width: auto; }
-    </style>
-</head>
+<head th:replace="~{fragments/layout :: pageHead('회원가입 · mealmate')}"></head>
 <body>
 
-<h1>회원가입</h1>
+<div class="sheet">
 
-<p class="error" th:if="${error}" th:text="${error}">오류 메시지</p>
+    <th:block th:replace="~{fragments/layout :: pageTop(null)}"></th:block>
 
-<form th:action="@{/signup}" method="post">
-    <label>이메일
-        <input type="email" name="email" th:value="${email}" required autofocus>
-    </label>
+    <div class="column">
 
-    <label>비밀번호
-        <!--
-          minlength 는 브라우저가 보내기 전에 걸러주는 편의 기능일 뿐이다.
-          개발자 도구로 지우거나 curl 로 직접 보내면 그냥 통과한다.
-          진짜 검사는 서버(AuthServiceImpl)에서 한 번 더 한다.
-        -->
-        <input type="password" name="password" minlength="8" required>
-        <div class="hint">8자 이상</div>
-    </label>
+    <p class="section">회원가입</p>
 
-    <label>닉네임
-        <input type="text" name="nickname" th:value="${nickname}" maxlength="50" required>
-        <div class="hint">갤러리에 표시되는 이름입니다</div>
-    </label>
+    <div class="msg err" th:if="${error}" th:text="${error}">오류 메시지</div>
 
-    <!-- 소셜 가입과 같은 약관 동의를 받는다. 가입 경로가 달라도 동의는 똑같이 필요하다 -->
-    <div class="terms">
-        <label>
-            <input type="checkbox" name="agreeTerms" value="true" required>
-            <strong>[필수]</strong> 이용약관에 동의합니다
+    <form th:action="@{/signup}" method="post">
+
+        <label class="field">
+            <span>이메일</span>
+            <input type="email" name="email" th:value="${email}" required autofocus>
         </label>
-        <label>
-            <input type="checkbox" name="agreePrivacy" value="true" required>
-            <strong>[필수]</strong> 개인정보 처리방침에 동의합니다
+
+        <label class="field">
+            <span>비밀번호</span>
+            <!--
+              minlength 는 브라우저가 보내기 전에 걸러주는 편의 기능일 뿐이다.
+              개발자 도구로 지우거나 curl 로 직접 보내면 그냥 통과한다.
+              진짜 검사는 서버(AuthServiceImpl)에서 한 번 더 한다.
+            -->
+            <input type="password" name="password" minlength="8" required>
+            <span class="hint">8자 이상</span>
         </label>
+
+        <label class="field">
+            <span>닉네임</span>
+            <input type="text" name="nickname" th:value="${nickname}" maxlength="50" required>
+            <span class="hint">갤러리에 표시되는 이름입니다</span>
+        </label>
+
+        <!-- 소셜 가입과 같은 약관 동의를 받는다. 가입 경로가 달라도 동의는 똑같이 필요하다 -->
+        <div class="box sketch">
+            <label>
+                <input type="checkbox" name="agreeTerms" value="true" required>
+                <strong>[필수]</strong> 이용약관에 동의합니다
+            </label>
+            <label>
+                <input type="checkbox" name="agreePrivacy" value="true" required>
+                <strong>[필수]</strong> 개인정보 처리방침에 동의합니다
+            </label>
+        </div>
+
+        <button type="submit" class="btn wide">동의하고 가입하기</button>
+    </form>
+
+    <p class="foot">
+        이미 회원이신가요?
+        <a class="link" th:href="@{/login}">로그인</a>
+    </p>
+
     </div>
-
-    <button type="submit">동의하고 가입하기</button>
-</form>
-
-<p class="sub">
-    이미 회원이신가요?
-    <a th:href="@{/login}">로그인</a>
-</p>
+</div>
 
 </body>
 </html>

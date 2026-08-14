@@ -16,9 +16,11 @@
 -- 개발 중에 이 스크립트를 반복 실행하기 위한 장치다.
 
 DROP TABLE IF EXISTS photo;            -- post 를 참조하므로 가장 먼저
-DROP TABLE IF EXISTS post;             -- member, restaurant 를 참조
+DROP TABLE IF EXISTS post;             -- member, place, space 를 참조
+DROP TABLE IF EXISTS space_member;     -- space, member 를 참조
+DROP TABLE IF EXISTS space;            -- member 를 참조
 DROP TABLE IF EXISTS member_identity;  -- member 를 참조
-DROP TABLE IF EXISTS restaurant;       -- 아무것도 참조하지 않음
+DROP TABLE IF EXISTS place;            -- 아무것도 참조하지 않음
 DROP TABLE IF EXISTS member;           -- 아무것도 참조하지 않음
 
 
@@ -146,7 +148,80 @@ CREATE TABLE member_identity (
 
 
 -- ============================================================
---  3. restaurant  (식당)
+--  2-2. space  (공유 공간)
+-- ============================================================
+--  연인·친구·동호회처럼 여러 사람이 함께 사진을 올리고 서로의 기록을 보는 곳이다.
+--  참여는 초대 코드로 한다. 코드를 아는 사람이 들어오고, 참여자만 그 공간을 본다.
+-- ============================================================
+CREATE TABLE space (
+
+    space_id     BIGINT       NOT NULL AUTO_INCREMENT  COMMENT '공간 식별자',
+
+    name         VARCHAR(50)  NOT NULL                 COMMENT '공간 이름',
+
+    -- 만든 사람. 참여자와 별도로 두는 이유는 '아무나 하면 안 되는 동작' 때문이다.
+    -- 초대 코드 재발급이 그 예다. 참여자 아무나 바꿀 수 있으면
+    -- 들어온 사람이 코드를 갈아끼워 만든 사람이 다른 사람을 못 부르게 만들 수 있다.
+    owner_id     BIGINT       NOT NULL                 COMMENT '만든 사람',
+
+    -- 초대 코드. 이 값이 곧 열쇠다.
+    --
+    -- 순번(1, 2, 3)으로 두면 남의 공간을 순서대로 열어볼 수 있다.
+    -- 그래서 예측할 수 없는 난수로 만든다. 혼동되는 글자(0/O, 1/I)는 빼고
+    -- 31글자 중 8자리를 뽑는다. 약 850조 가지다.
+    invite_code  VARCHAR(16)  NOT NULL                 COMMENT '초대 코드',
+
+    created_at   DATETIME     NOT NULL                 COMMENT '생성 시각',
+    updated_at   DATETIME     NOT NULL                 COMMENT '마지막 수정 시각',
+
+    PRIMARY KEY (space_id),
+
+    -- 코드로 공간을 찾으므로 겹치면 어느 공간인지 정할 수 없다.
+    UNIQUE KEY uk_space_invite (invite_code),
+
+    CONSTRAINT fk_space_owner
+        FOREIGN KEY (owner_id) REFERENCES member (member_id)
+
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COMMENT='공유 공간';
+
+
+-- ============================================================
+--  2-3. space_member  (공간 참여자)
+-- ============================================================
+--  "누가 어느 공간에 속해 있는가" 만 담는다.
+--  회원과 공간의 다대다 관계를 풀어놓은 표이고, 이 표가 곧 접근 권한이다.
+--  여기 없는 사람은 그 공간의 게시물을 볼 수 없다.
+-- ============================================================
+CREATE TABLE space_member (
+
+    space_member_id BIGINT   NOT NULL AUTO_INCREMENT  COMMENT '참여 식별자',
+
+    space_id        BIGINT   NOT NULL                 COMMENT '공간',
+    member_id       BIGINT   NOT NULL                 COMMENT '참여자',
+
+    created_at      DATETIME NOT NULL                 COMMENT '참여 시각',
+    updated_at      DATETIME NOT NULL                 COMMENT '마지막 수정 시각',
+
+    PRIMARY KEY (space_member_id),
+
+    -- 같은 사람이 같은 공간에 두 번 들어가지 못하게 한다.
+    -- 초대 링크를 두 번 눌러도 참여 기록이 두 줄 생기지 않는다.
+    UNIQUE KEY uk_space_member (space_id, member_id),
+
+    CONSTRAINT fk_space_member_space
+        FOREIGN KEY (space_id)  REFERENCES space (space_id),
+    CONSTRAINT fk_space_member_member
+        FOREIGN KEY (member_id) REFERENCES member (member_id)
+
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COMMENT='공간 참여자';
+
+
+-- ============================================================
+--  3. place  (장소)
 -- ============================================================
 --  이 테이블만 성격이 다르다.
 --  원본은 지도 API 에 있고, 우리 DB 는 사본(캐시)이다.
@@ -155,14 +230,14 @@ CREATE TABLE member_identity (
 --    (2) '내가 가본 식당 목록' 은 지도 API 가 모른다. 우리만 안다
 --    (3) 폐업하면 원본이 사라진다. 추억 서비스에서 추억이 사라지면 안 된다
 -- ============================================================
-CREATE TABLE restaurant (
+CREATE TABLE place (
 
-    restaurant_id  BIGINT          NOT NULL AUTO_INCREMENT  COMMENT '식당 식별자',
+    place_id       BIGINT          NOT NULL AUTO_INCREMENT  COMMENT '장소 식별자',
 
     -- 지도 API 가 매긴 장소 ID. 같은 식당인지 판별하는 유일한 기준이다.
     -- 이름+주소로 비교하면 '역전할머니맥주' 와 '역전 할머니 맥주' 가
     -- 다른 가게로 인식되어 중복 행이 쌓이고, 식당별 모아보기가 망가진다.
-    place_id       VARCHAR(50)     NOT NULL                 COMMENT '지도 API 장소 ID',
+    kakao_place_id VARCHAR(50)     NOT NULL                 COMMENT '카카오가 매긴 장소 ID',
 
     -- MVP 에서는 갱신하지 않으므로 이 값이 곧 '방문했던 그 시절 이름' 이다.
     -- 나중에 갱신 기능을 넣을 때는 반드시 순서를 지켜야 한다.
@@ -183,15 +258,15 @@ CREATE TABLE restaurant (
     created_at     DATETIME        NOT NULL                 COMMENT '우리 DB 에 처음 저장된 시각',
     updated_at     DATETIME        NOT NULL                 COMMENT '마지막 수정 시각',
 
-    PRIMARY KEY (restaurant_id),
+    PRIMARY KEY (place_id),
 
     -- 겹치면 같은 가게가 두 줄로 쪼개져 '식당별 모아보기' 가 깨진다.
     -- 겹치면 데이터가 망가지는 값이므로 UNIQUE 를 건다.
-    UNIQUE KEY uk_restaurant_place (place_id)
+    UNIQUE KEY uk_place_kakao (kakao_place_id)
 
 ) ENGINE=InnoDB
   DEFAULT CHARSET=utf8mb4
-  COMMENT='식당 (지도 API 사본)';
+  COMMENT='장소 (지도 API 사본)';
 
 
 -- ============================================================
@@ -205,12 +280,19 @@ CREATE TABLE post (
     -- FK 는 참조 대상과 타입이 같아야 한다 (member.member_id 가 BIGINT).
     member_id      BIGINT        NOT NULL                 COMMENT '작성자',
 
+    -- 이 기록이 속한 공유 공간. NULL 이면 작성자만 보는 개인 기록이다.
+    --
+    -- 게시물이 여러 공간에 동시에 속하지는 않는다. 다대다로 두면
+    -- "이 사진은 A모임엔 보이고 B모임엔 안 보인다" 를 사용자가 매번 관리해야 한다.
+    -- 올릴 때 한 곳을 고르는 편이 단순하다.
+    space_id       BIGINT        NULL                     COMMENT '공유 공간 (NULL 이면 개인 기록)',
+
     -- NULL 을 허용하는 이유:
     --   집에서 해먹은 음식, 캠핑장, EXIF 가 지워져 좌표를 못 찾는 사진,
     --   폐업해서 지도에서 검색되지 않는 가게.
     -- NOT NULL 로 걸면 집밥 사진을 아예 올릴 수 없게 되어
     -- '갤러리에 쌓인 음식 사진을 모아둔다' 는 서비스 취지가 반쯤 깨진다.
-    restaurant_id  BIGINT        NULL                     COMMENT '먹은 장소 (없을 수 있음)',
+    place_id       BIGINT        NULL                     COMMENT '먹은 장소 (없을 수 있음)',
 
     -- 컬럼명을 comment 가 아니라 content 로 둔 이유:
     --   MySQL 에서 COMMENT 는 DDL 문법에 쓰이는 키워드라 읽을 때 헷갈리고,
@@ -247,8 +329,11 @@ CREATE TABLE post (
     CONSTRAINT fk_post_member
         FOREIGN KEY (member_id)     REFERENCES member (member_id),
 
-    CONSTRAINT fk_post_restaurant
-        FOREIGN KEY (restaurant_id) REFERENCES restaurant (restaurant_id)
+    CONSTRAINT fk_post_place
+        FOREIGN KEY (place_id)      REFERENCES place (place_id),
+
+    CONSTRAINT fk_post_space
+        FOREIGN KEY (space_id)      REFERENCES space (space_id)
 
 ) ENGINE=InnoDB
   DEFAULT CHARSET=utf8mb4

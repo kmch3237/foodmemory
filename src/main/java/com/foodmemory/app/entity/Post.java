@@ -48,6 +48,21 @@ public class Post extends BaseEntity {
     private Member member;
 
     /**
+     * 이 기록이 속한 공유 공간. 없을 수 있다.
+     *
+     *   null    → 개인 기록. 작성자만 본다
+     *   값 있음 → 그 공간의 참여자 전원이 본다
+     *
+     * 게시물이 여러 공간에 동시에 속하지는 않는다.
+     * 다대다로 두면 "이 사진은 A모임엔 보이고 B모임엔 안 보인다" 같은 상태를
+     * 사용자가 매번 관리해야 한다. 올릴 때 한 곳을 고르는 편이 단순하다.
+     * 여러 곳에 보여줘야 할 이유가 실제로 생기면 그때 표를 하나 더 만든다.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "space_id")
+    private Space space;
+
+    /**
      * 먹은 장소. 없을 수 있다.
      *
      * nullable 을 적지 않으면 기본값이 true(NULL 허용)다.
@@ -55,12 +70,12 @@ public class Post extends BaseEntity {
      * 등록할 수 있어야 하므로 NULL 을 허용한다.
      *
      * 자바에서는 이 값이 null 일 수 있다는 뜻이므로,
-     * post.getRestaurant().getName() 을 바로 부르면 NullPointerException 이 난다.
+     * post.getPlace().getName() 을 바로 부르면 NullPointerException 이 난다.
      * 화면에서 다룰 때 null 검사가 필요하다.
      */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "restaurant_id")
-    private Restaurant restaurant;
+    @JoinColumn(name = "place_id")
+    private Place place;
 
     @Column(length = 500)
     private String content;
@@ -85,32 +100,41 @@ public class Post extends BaseEntity {
     /**
      * 게시물을 작성한다.
      *
-     * restaurant 는 null 을 허용한다. 집에서 먹었거나 좌표가 없는 사진일 수 있다.
-     * isPublic 은 항상 false 로 시작한다. MVP 에는 공유 기능이 없고,
-     * 실수로 공개되는 것을 막는 안전한 기본값이다.
+     * place 는 null 을 허용한다. 집에서 먹었거나 좌표가 없는 사진일 수 있다.
+     * space 도 null 을 허용한다. null 이면 나만 보는 개인 기록이다.
+     *
+     * isPublic 은 항상 false 로 시작한다.
+     * 공유는 공간(space)으로 다루기로 해서 이 값은 아직 쓰이지 않는다.
+     * '누구나 볼 수 있는 공개 기록' 이 생기면 그때 쓴다.
      */
-    public static Post create(Member member, Restaurant restaurant,
+    public static Post create(Member member, Space space, Place place,
                               String content, LocalDateTime eatenDate) {
         Post post = new Post();
         post.member = member;
-        post.restaurant = restaurant;
+        post.space = space;
+        post.place = place;
         post.content = content;
         post.eatenDate = eatenDate;
         post.isPublic = false;
         return post;
     }
 
+    /** 이 기록을 볼 수 있는 사람인지 판단할 때 쓴다. 공간에 속하지 않으면 개인 기록이다. */
+    public boolean isPersonal() {
+        return space == null;
+    }
+
     /**
      * 먹은 장소를 지정한다.
      *
      * setter 를 열지 않고 이런 메서드를 두는 이유는 '무엇을 하는 변경인지' 가
-     * 코드에 남기 때문이다. setRestaurant 보다 assignRestaurant 가 의도를 드러낸다.
+     * 코드에 남기 때문이다. setPlace 보다 assignPlace 가 의도를 드러낸다.
      *
      * 이 메서드로 값을 바꾸면 UPDATE 문을 직접 쓰지 않아도 DB 에 반영된다.
      * 영속성 컨텍스트가 트랜잭션이 끝날 때 값이 바뀐 것을 감지해 UPDATE 를 만들어 보낸다.
      * 이를 변경 감지(더티 체킹)라고 한다.
      */
-    public void assignRestaurant(Restaurant restaurant) {
-        this.restaurant = restaurant;
+    public void assignPlace(Place place) {
+        this.place = place;
     }
 }

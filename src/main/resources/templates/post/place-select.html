@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: pageHead('장소 연결 · mealmate')}"></head>
+<body>
+
+<div class="sheet">
+
+    <th:block th:replace="~{fragments/layout :: pageTop(${loginMember})}"></th:block>
+
+    <div class="column-wide">
+
+    <p class="back"><a th:href="@{/posts/{id}(id=${postId})}">← 기록으로</a></p>
+
+    <p class="section">어디서 드셨나요?</p>
+
+    <!--
+      좌표가 없을 때 안내한다.
+      예전에는 이 경우 400 화면으로 끝났다. 사용자 입장에서는 '안 되는 기능' 이었다.
+      이유를 알려주고 검색으로 이어지게 해야 기능이 성립한다.
+    -->
+    <div class="msg" th:unless="${result.photoHasLocation}">
+        이 사진에는 위치 정보가 없습니다. 이름으로 찾아주세요.<br>
+        <span class="hint">아이폰에서 웹으로 올리거나 메신저를 거친 사진은 위치가 지워집니다.</span>
+    </div>
+
+    <p class="hint" th:if="${result.photoHasLocation and result.keyword == null}">
+        사진에 기록된 위치 주변입니다. 가까운 순서로 보여줍니다.
+    </p>
+
+    <!-- 좌표가 있든 없든 검색은 항상 쓸 수 있다. 후보에 원하는 곳이 없을 수 있기 때문이다 -->
+    <form class="row section-gap" th:action="@{/posts/{id}/places(id=${postId})}" method="get">
+        <input type="text" name="keyword" th:value="${result.keyword}"
+               placeholder="가게·장소 이름으로 검색" required>
+        <button type="submit" class="btn">검색</button>
+    </form>
+
+    <p class="empty" th:if="${result.searched() and #lists.isEmpty(result.places)}">
+        검색 결과가 없습니다. 다른 이름으로 찾아보세요.
+    </p>
+
+    <ul class="list">
+        <li th:each="candidate : ${result.places}">
+            <!--
+              장소마다 폼을 하나씩 둔다.
+              선택은 서버의 데이터를 바꾸는 동작이므로 링크(GET)가 아니라 POST 로 보낸다.
+            -->
+            <form th:action="@{/posts/{id}/place(id=${postId})}" method="post">
+                <!--
+                  카카오가 매긴 ID 다. 우리 place_id 와 다르다.
+                  우리 번호는 이 장소를 저장한 뒤에야 생긴다.
+                -->
+                <input type="hidden" name="kakaoPlaceId" th:value="${candidate.kakaoPlaceId}">
+
+                <!--
+                  검색어를 함께 보낸다. 서버가 같은 검색을 다시 돌려
+                  이 ID 가 실제 결과에 있었는지 확인하기 위해서다.
+                  이름·주소·좌표는 보내지 않는다. 보내면 고쳐서 보낼 수 있다.
+                -->
+                <input type="hidden" name="keyword" th:value="${result.keyword}">
+
+                <button type="submit" class="btn" th:text="${candidate.name}">장소 이름</button>
+                <div class="hint">
+                    <span th:if="${candidate.distanceMeters > 0}"
+                          th:text="${candidate.distanceMeters} + 'm · '">거리</span>
+                    <span th:text="${candidate.address}">주소</span>
+                    <span th:if="${!#strings.isEmpty(candidate.categoryName)}"
+                          th:text="' · ' + ${candidate.categoryName}">분류</span>
+                </div>
+            </form>
+        </li>
+    </ul>
+
+    </div>
+</div>
+
+</body>
+</html>

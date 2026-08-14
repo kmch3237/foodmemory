@@ -1,12 +1,22 @@
 <!DOCTYPE html>
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <title>잘못된 요청</title>
-</head>
+<head th:replace="~{fragments/layout :: pageHead('잘못된 요청 · mealmate')}"></head>
 <body>
-<h1>잘못된 요청입니다</h1>
-<p th:text="${message}">입력값을 확인해주세요.</p>
-<p><a th:href="@{/}">갤러리로 돌아가기</a></p>
+
+<div class="sheet">
+
+    <th:block th:replace="~{fragments/layout :: pageTop(null)}"></th:block>
+
+    <div class="column">
+
+    <p class="section">잘못된 요청입니다</p>
+
+    <div class="msg err" th:text="${message}">입력값을 확인해주세요.</div>
+
+    <p class="foot"><a class="link" th:href="@{/}">내 갤러리로 돌아가기</a></p>
+
+    </div>
+</div>
+
 </body>
 </html>

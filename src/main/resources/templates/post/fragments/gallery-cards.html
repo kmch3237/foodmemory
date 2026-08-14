@@ -4,7 +4,7 @@
   갤러리의 사진 칸들.
 
   이 파일은 통째로 열리는 화면이 아니라 조각이다.
-  첫 화면(list.html)도 이 조각을 쓰고, 스크롤로 이어붙이는 요청도 이 조각을 쓴다.
+  첫 화면도 이 조각을 쓰고, 스크롤로 이어붙이는 요청도 이 조각을 쓴다.
   한 군데만 고치면 양쪽이 같이 바뀐다.
 
   별도 파일로 뺀 이유:
@@ -13,7 +13,7 @@
 <body>
 
 <th:block th:fragment="cards">
-    <a th:each="post : ${posts}" th:href="@{/posts/{id}(id=${post.postId})}">
+    <a class="card" th:each="post : ${posts}" th:href="@{/posts/{id}(id=${post.postId})}">
 
         <!--
           loading="lazy" 는 화면에 들어올 때가 되어서야 사진을 내려받게 한다.

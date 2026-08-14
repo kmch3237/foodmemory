@@ -1,83 +1,86 @@
 <!DOCTYPE html>
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <title>기록 상세</title>
-    <style>
-        /*
-          사진마다 원본 비율이 제각각이라 그대로 두면 화면이 들쭉날쭉해진다.
-          통일하는 방법은 세 가지가 있다.
-
-            늘리기          비율이 깨져서 음식이 찌그러진다
-            여백 채우기      크기는 맞지만 위아래에 빈 공간이 생긴다
-            잘라내서 채우기   비율을 유지하면서 넘치는 부분만 자른다  ← 이걸 쓴다
-
-          aspect-ratio 로 틀의 비율을 4:3 으로 고정하고,
-          object-fit: cover 로 그 틀을 가득 채우되 넘치는 부분은 잘라낸다.
-        */
-        .photo {
-            display: block;
-            width: 100%;
-            max-width: 640px;
-            aspect-ratio: 4 / 3;
-            object-fit: cover;
-            margin-bottom: 8px;
-        }
-    </style>
-</head>
+<head th:replace="~{fragments/layout :: pageHead('기록 상세 · mealmate')}"></head>
 <body>
 
-<h1>기록 상세</h1>
+<div class="sheet">
 
-<!-- 목록과 달리 사진을 전부 보여준다 -->
-<div th:each="path : ${post.photoPaths}">
-    <img class="photo" th:src="@{${uploadUrlPrefix} + '/' + ${path}}" alt="음식 사진">
+    <th:block th:replace="~{fragments/layout :: pageTop(${loginMember})}"></th:block>
+
+    <div class="column-wide">
+
+    <p class="back">
+        <a th:if="${post.spaceId == null}" th:href="@{/}">← 내 갤러리</a>
+        <a th:if="${post.spaceId != null}"
+           th:href="@{/spaces/{id}(id=${post.spaceId})}"
+           th:text="'← ' + ${post.spaceName}">← 방</a>
+    </p>
+
+    <!--
+      목록과 달리 사진을 전부 보여준다.
+
+      사진마다 원본 비율이 제각각이라 그대로 두면 화면이 들쭉날쭉해진다.
+      aspect-ratio 로 틀의 비율을 고정하고 object-fit: cover 로 넘치는 부분만 잘라낸다.
+      늘리면 음식이 찌그러지고, 여백을 채우면 위아래가 빈다.
+    -->
+    <div th:each="path : ${post.photoPaths}" style="margin-bottom:14px">
+        <img class="card" style="width:100%;display:block"
+             th:src="@{${uploadUrlPrefix} + '/' + ${path}}" alt="음식 사진">
+    </div>
+
+    <p class="empty" th:if="${#lists.isEmpty(post.photoPaths)}">사진이 없습니다.</p>
+
+    <p>
+        <strong th:text="${post.writerNickname}">닉네임</strong>
+        <span th:text="${#temporals.format(post.eatenDate, 'yyyy년 M월 d일 HH:mm')}">날짜</span>
+    </p>
+
+    <!-- 코멘트는 없을 수 있다. 사진만으로도 완결된 기록이다 -->
+    <p th:if="${!#strings.isEmpty(post.content)}" th:text="${post.content}">코멘트</p>
+
+    <!--
+      이 기록이 어디까지 보이는지 알려준다.
+      공개 범위는 사용자가 늘 확인할 수 있어야 하는 정보다.
+    -->
+    <p class="hint" th:if="${post.spaceId != null}">
+        <span th:text="${post.spaceName}">방 이름</span> 에 올린 기록입니다. 멤버 모두가 볼 수 있습니다.
+    </p>
+    <p class="hint" th:if="${post.spaceId == null}">나만 보는 개인 기록입니다.</p>
+
+    <!-- 장소도 없을 수 있다. 집에서 먹었거나 아직 연결하지 않은 경우다 -->
+    <div class="box sketch" th:if="${post.placeName != null}">
+        <strong th:text="${post.placeName}">장소 이름</strong>
+        <div class="hint" th:text="${post.placeAddress}">주소</div>
+    </div>
+
+    <!--
+      장소가 아직 없고 본인 기록일 때만 보여준다.
+
+      문구를 '사진 위치로 장소 찾기' 에서 바꿨다.
+      사진에 좌표가 없어도 이름으로 찾을 수 있게 되어 좌표가 전제가 아니게 됐기 때문이다.
+      버튼 이름이 전제를 잘못 알려주면 사용자는 좌표 없는 사진에서 아예 누르지 않는다.
+    -->
+    <p th:if="${post.placeName == null and loginMember != null and loginMember.memberId == post.writerId}">
+        <a class="btn" th:href="@{/posts/{id}/places(id=${post.postId})}">장소 연결하기</a>
+    </p>
+
+    <!--
+      삭제 버튼은 본인 기록에만 보인다.
+      다만 버튼을 감추는 것은 편의일 뿐이고, 실제 차단은 서버가 한다.
+      버튼이 없어도 주소로 직접 요청을 보낼 수 있기 때문이다.
+
+      한 번 더 묻는 이유: 삭제는 되돌릴 수 없다.
+    -->
+    <form th:if="${loginMember != null and loginMember.memberId == post.writerId}"
+          th:action="@{/posts/{id}/delete(id=${post.postId})}"
+          method="post"
+          class="section-gap"
+          onsubmit="return confirm('이 기록을 삭제할까요? 사진도 함께 지워지며 되돌릴 수 없습니다.');">
+        <button type="submit" class="btn">기록 삭제</button>
+    </form>
+
+    </div>
 </div>
-
-<p th:if="${#lists.isEmpty(post.photoPaths)}">사진이 없습니다.</p>
-
-<hr>
-
-<p>
-    <strong th:text="${post.writerNickname}">닉네임</strong>
-    <span th:text="${#temporals.format(post.eatenDate, 'yyyy년 M월 d일 HH:mm')}">날짜</span>
-</p>
-
-<!-- 코멘트는 없을 수 있다. 사진만으로도 완결된 기록이다 -->
-<p th:if="${!#strings.isEmpty(post.content)}" th:text="${post.content}">코멘트</p>
-
-<!-- 식당도 없을 수 있다. 집에서 먹었거나 위치를 찾지 못한 경우다 -->
-<div th:if="${post.restaurantName != null}">
-    <p th:text="${post.restaurantName}">식당 이름</p>
-    <p th:text="${post.restaurantAddress}">주소</p>
-</div>
-
-<!--
-  식당이 아직 지정되지 않았고 본인 기록일 때만 보여준다.
-  남의 기록에 식당을 지정할 수는 없으므로 버튼을 띄울 이유가 없다.
--->
-<p th:if="${post.restaurantName == null and loginMember != null and loginMember.memberId == post.writerId}">
-    <a th:href="@{/posts/{id}/restaurants(id=${post.postId})}">사진 위치로 식당 찾기</a>
-</p>
-
-<hr>
-
-<!--
-  삭제 버튼은 본인 기록에만 보인다.
-  다만 버튼을 감추는 것은 편의일 뿐이고, 실제 차단은 서버가 한다.
-  버튼이 없어도 주소로 직접 요청을 보낼 수 있기 때문이다.
-
-  onclick 으로 한 번 더 묻는 이유:
-    삭제는 되돌릴 수 없다. 실수로 눌렀을 때 되돌릴 방법이 없으므로 확인을 받는다.
--->
-<form th:if="${loginMember != null and loginMember.memberId == post.writerId}"
-      th:action="@{/posts/{id}/delete(id=${post.postId})}"
-      method="post"
-      onsubmit="return confirm('이 기록을 삭제할까요? 사진도 함께 지워지며 되돌릴 수 없습니다.');">
-    <button type="submit">기록 삭제</button>
-</form>
-
-<p><a th:href="@{/}">갤러리로 돌아가기</a></p>
 
 </body>
 </html>

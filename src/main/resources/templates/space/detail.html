@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: pageHead(${space.name})}"></head>
+<body>
+
+<div class="sheet">
+
+    <th:block th:replace="~{fragments/layout :: pageTop(${loginMember})}"></th:block>
+
+    <p class="back"><a th:href="@{/}">← 내 갤러리</a></p>
+
+    <p class="section" th:text="${space.name}">방 이름</p>
+
+    <div class="msg"     th:if="${message}" th:text="${message}">안내</div>
+    <div class="msg err" th:if="${error}"   th:text="${error}">오류</div>
+
+    <p class="hint">
+        <span th:text="'멤버 ' + ${#lists.size(space.memberNicknames)} + '명'">멤버 수</span>
+        · <span th:text="${#strings.listJoin(space.memberNicknames, ', ')}">이름들</span>
+    </p>
+
+    <!-- ── 초대 ───────────────────────────────────────────── -->
+    <div class="box sketch">
+        <h2>초대 코드</h2>
+
+        <!--
+          코드가 곧 열쇠다. 이 화면은 참여자만 볼 수 있고,
+          서비스가 참여 여부를 확인한 뒤에야 여기까지 온다.
+        -->
+        <p>
+            <span class="invite-code" id="code" th:text="${space.inviteCode}">CODE</span>
+        </p>
+
+        <p>
+            <button type="button" class="btn" onclick="copyCode()">코드 복사</button>
+            <button type="button" class="btn" onclick="copyLink()">초대 링크 복사</button>
+        </p>
+
+        <p class="hint">
+            이 코드를 아는 사람이 방에 들어와 사진을 보고 올릴 수 있습니다.<br>
+            카카오톡·문자 등 편한 방법으로 전달하세요.
+        </p>
+
+        <!-- 코드가 밖으로 샜을 때를 위한 장치. 만든 사람만 할 수 있다 -->
+        <form th:if="${space.owner}" th:action="@{/spaces/{id}/invite-code(id=${space.spaceId})}"
+              method="post"
+              onsubmit="return confirm('새 코드를 만들면 이전 코드는 쓸 수 없게 됩니다. 계속할까요?');">
+            <button type="submit" class="btn">코드 새로 만들기</button>
+        </form>
+    </div>
+
+    <!-- ── 이 방의 기록 ───────────────────────────────────── -->
+    <p class="section section-gap">
+        이 방의 기록
+        <a class="link" th:href="@{/posts/new}" style="font-size:16px"> · 기록 올리기</a>
+    </p>
+
+    <p class="empty" th:if="${#lists.isEmpty(posts)}">
+        아직 올라온 기록이 없습니다. 첫 사진을 올려보세요.
+    </p>
+
+    <div class="gallery" id="gallery">
+        <th:block th:replace="~{post/fragments/gallery-cards :: cards}"></th:block>
+    </div>
+
+    <div class="foot" id="loading" hidden>불러오는 중…</div>
+    <div id="sentinel" th:if="${hasNext}" th:attr="data-next-page=${nextPage}"></div>
+
+</div>
+
+<script th:inline="javascript">
+    /*
+      코드와 링크를 클립보드로 복사한다.
+
+      링크는 서버가 만들지 않고 여기서 조립한다.
+      서버는 자기가 어떤 주소로 열렸는지(localhost 인지 배포 도메인인지) 알기 어렵지만,
+      화면은 location.origin 으로 정확히 안다.
+    */
+    const inviteCode = /*[[${space.inviteCode}]]*/ '';
+
+    function copy(text, done) {
+        navigator.clipboard.writeText(text)
+            .then(() => alert(done))
+            .catch(() => prompt('복사가 안 되면 아래 값을 직접 복사하세요', text));
+    }
+    function copyCode() { copy(inviteCode, '초대 코드를 복사했습니다.'); }
+    function copyLink() {
+        copy(location.origin + '/spaces/join?code=' + inviteCode, '초대 링크를 복사했습니다.');
+    }
+</script>
+
+<script th:replace="~{post/fragments/infinite-scroll :: script(${spaceId})}"></script>
+
+</body>
+</html>

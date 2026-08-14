@@ -33,8 +33,19 @@ public record PostDetailResponse(
         Long writerId,
 
         String writerNickname,
-        String restaurantName,
-        String restaurantAddress,
+        String placeName,
+        String placeAddress,
+
+        /**
+         * 이 기록이 속한 공유 공간. 개인 기록이면 둘 다 null 이다.
+         *
+         * 화면에 "이 기록은 '제주도 여행' 에 올라간 것" 이라고 알려주기 위해서다.
+         * 그게 없으면 사용자는 이 사진이 남에게 보이는지 아닌지 알 수 없다.
+         * 공개 범위는 사용자가 늘 확인할 수 있어야 하는 정보다.
+         */
+        Long spaceId,
+        String spaceName,
+
         List<String> photoPaths      // 올린 순서대로. 비어 있을 수 있다
 ) {
 
@@ -45,8 +56,10 @@ public record PostDetailResponse(
                 post.getEatenDate(),
                 post.getMember().getMemberId(),
                 post.getMember().getNickname(),
-                post.getRestaurant() != null ? post.getRestaurant().getName() : null,
-                post.getRestaurant() != null ? post.getRestaurant().getAddress() : null,
+                post.getPlace() != null ? post.getPlace().getName() : null,
+                post.getPlace() != null ? post.getPlace().getAddress() : null,
+                post.getSpace() != null ? post.getSpace().getSpaceId() : null,
+                post.getSpace() != null ? post.getSpace().getName() : null,
                 photoPaths
         );
     }

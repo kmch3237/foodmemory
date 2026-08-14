@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: pageHead('방 관리 · mealmate')}"></head>
+<body>
+
+<div class="sheet">
+
+    <th:block th:replace="~{fragments/layout :: pageTop(${loginMember})}"></th:block>
+
+    <div class="column-wide">
+
+    <p class="back"><a th:href="@{/}">← 내 갤러리</a></p>
+
+    <p class="section">참여 중인 방</p>
+
+    <div class="msg"     th:if="${message}" th:text="${message}">안내</div>
+    <div class="msg err" th:if="${error}"   th:text="${error}">오류</div>
+
+    <p class="empty" th:if="${#lists.isEmpty(spaces)}">
+        아직 참여 중인 방이 없습니다.<br>
+        방을 만들어 초대하거나, 받은 코드로 들어가세요.
+    </p>
+
+    <ul class="list">
+        <li th:each="space : ${spaces}">
+            <a th:href="@{/spaces/{id}(id=${space.spaceId})}">
+                <strong th:text="${space.name}">방 이름</strong>
+                <div class="hint">
+                    <span th:text="'멤버 ' + ${space.memberCount} + '명'">멤버 수</span>
+                    <span th:if="${space.owner}"> · 내가 만듦</span>
+                </div>
+            </a>
+        </li>
+    </ul>
+
+    <div class="box sketch section-gap">
+        <h2>새 방 만들기</h2>
+        <form class="row" th:action="@{/spaces}" method="post">
+            <input type="text" name="name" placeholder="예) 제주도 여행"
+                   maxlength="50" required>
+            <button type="submit" class="btn">만들기</button>
+        </form>
+        <p class="hint">만들면 초대 코드가 생깁니다. 그 코드를 아는 사람이 들어올 수 있습니다.</p>
+    </div>
+
+    <div class="box sketch">
+        <h2>코드로 참여하기</h2>
+        <!--
+          참여는 GET /spaces/join?code=... 이다.
+          초대 링크를 눌러 들어오는 경로와 같은 곳으로 보내, 처리하는 곳을 하나로 둔다.
+        -->
+        <form class="row" th:action="@{/spaces/join}" method="get">
+            <input type="text" name="code" placeholder="받은 초대 코드"
+                   maxlength="16" required style="text-transform: uppercase">
+            <button type="submit" class="btn">참여</button>
+        </form>
+    </div>
+
+    </div>
+</div>
+
+</body>
+</html>

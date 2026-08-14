@@ -4,6 +4,7 @@ import com.foodmemory.app.auth.Login;
 import com.foodmemory.app.auth.LoginMember;
 import com.foodmemory.app.dto.GalleryPage;
 import com.foodmemory.app.service.PostService;
+import com.foodmemory.app.service.SpaceService;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,6 +26,7 @@ import java.util.List;
 public class PostController {
 
     private final PostService postService;
+    private final SpaceService spaceService;
 
     /**
      * 사진 주소의 앞부분. DB 에는 저장하지 않고 화면에서 붙인다.
@@ -34,16 +36,22 @@ public class PostController {
     private String uploadUrlPrefix;
 
     /**
-     * 갤러리 화면. 첫 페이지만 그리고, 나머지는 스크롤에 따라 이어붙인다.
+     * 내 갤러리. 첫 페이지만 그리고, 나머지는 스크롤에 따라 이어붙인다.
      *
-     * 이 화면은 로그인하지 않아도 볼 수 있다. 그래서 loginMember 가 null 일 수 있고,
-     * 화면에서는 그때 "로그인" 버튼을 보여준다.
+     * 로그인하지 않으면 로그인 화면으로 보낸다.
+     * 예전에는 누구나 볼 수 있었고 남의 기록까지 다 보였다.
+     * 이제 기록에 주인이 생겼으므로 로그인이 전제가 된다.
      */
     @GetMapping("/")
     public String gallery(@Login LoginMember loginMember, Model model) {
-        model.addAttribute("loginMember", loginMember);
+        if (loginMember == null) {
+            return "redirect:/login";
+        }
 
-        GalleryPage page = postService.getGallery(0);
+        model.addAttribute("loginMember", loginMember);
+        model.addAttribute("spaces", spaceService.findMySpaces(loginMember.memberId()));
+
+        GalleryPage page = postService.getMyGallery(loginMember.memberId(), 0);
         model.addAttribute("posts", page.posts());
         model.addAttribute("hasNext", page.hasNext());
         model.addAttribute("nextPage", page.nextPage());
@@ -68,9 +76,16 @@ public class PostController {
      */
     @GetMapping("/posts/more")
     public String more(@RequestParam(defaultValue = "0") int page,
+                       @RequestParam(required = false) Long spaceId,
+                       @Login LoginMember loginMember,
                        Model model,
                        HttpServletResponse response) {
-        GalleryPage galleryPage = postService.getGallery(page);
+
+        // spaceId 가 있으면 공간 갤러리를, 없으면 내 갤러리를 이어붙인다.
+        // 어느 쪽이든 서비스가 권한을 확인하므로 여기서 또 검사하지 않는다.
+        GalleryPage galleryPage = (spaceId == null)
+                ? postService.getMyGallery(loginMember.memberId(), page)
+                : postService.getSpaceGallery(spaceId, loginMember.memberId(), page);
 
         model.addAttribute("posts", galleryPage.posts());
         model.addAttribute("uploadUrlPrefix", uploadUrlPrefix);
@@ -96,7 +111,9 @@ public class PostController {
     public String detail(@PathVariable Long postId,
                          @Login LoginMember loginMember,
                          Model model) {
-        model.addAttribute("post", postService.getDetail(postId));
+        // 볼 수 있는 사람인지는 서비스가 판단한다.
+        // 개인 기록이면 작성자만, 공간 기록이면 그 공간의 참여자만 통과한다.
+        model.addAttribute("post", postService.getDetail(postId, loginMemberId(loginMember)));
         model.addAttribute("loginMember", loginMember);
         model.addAttribute("uploadUrlPrefix", uploadUrlPrefix);
         return "post/detail";
@@ -121,28 +138,45 @@ public class PostController {
     /**
      * 사진 좌표로 찾은 주변 음식점 후보를 보여준다.
      *
-     * 좌표만으로는 건물 안 어느 가게인지 확정할 수 없다. 같은 건물에 식당이 다섯 곳이면
+     * 좌표만으로는 건물 안 어느 가게인지 확정할 수 없다. 같은 건물에 장소가 다섯 곳이면
      * GPS 로는 전부 같은 위치다. 그래서 자동으로 정하지 않고 사용자가 고르게 한다.
      */
-    @GetMapping("/posts/{postId}/restaurants")
-    public String selectRestaurant(@PathVariable Long postId, Model model) {
+    @GetMapping("/posts/{postId}/places")
+    public String selectPlace(@PathVariable Long postId,
+                                   @RequestParam(required = false) String keyword,
+                                   @Login LoginMember loginMember,
+                                   Model model) {
+        model.addAttribute("loginMember", loginMember);
         model.addAttribute("postId", postId);
-        model.addAttribute("places", postService.findNearbyPlaces(postId));
-        return "post/restaurant-select";
+        model.addAttribute("result", postService.findPlaceCandidates(postId, keyword));
+        return "post/place-select";
     }
 
-    /** 고른 장소를 게시물의 식당으로 저장한다. 본인 기록에만 지정할 수 있다. */
-    @PostMapping("/posts/{postId}/restaurant")
-    public String assignRestaurant(@PathVariable Long postId,
-                                   @RequestParam("placeId") String placeId,
+    /**
+     * 고른 장소를 게시물의 장소로 저장한다. 본인 기록에만 지정할 수 있다.
+     *
+     * keyword 를 함께 넘기는 이유는 PostService 에 적어두었다.
+     * 요약하면 서버가 같은 검색을 한 번 더 돌려 이 ID 가 실제 결과에 있었는지 확인하기 위해서다.
+     */
+    @PostMapping("/posts/{postId}/place")
+    public String assignPlace(@PathVariable Long postId,
+                                   @RequestParam("kakaoPlaceId") String kakaoPlaceId,
+                                   @RequestParam(required = false) String keyword,
                                    @Login LoginMember loginMember) {
-        postService.assignRestaurant(postId, placeId, loginMember.memberId());
+        postService.assignPlace(postId, kakaoPlaceId, keyword, loginMember.memberId());
         return "redirect:/posts/" + postId;
     }
 
-    /** 업로드 폼 화면 */
+    /**
+     * 업로드 폼 화면.
+     *
+     * 내가 속한 공간 목록을 함께 넘긴다. 어디에 올릴지 고를 수 있어야 하기 때문이다.
+     * 고르지 않으면 개인 기록이 된다.
+     */
     @GetMapping("/posts/new")
-    public String uploadForm() {
+    public String uploadForm(@Login LoginMember loginMember, Model model) {
+        model.addAttribute("loginMember", loginMember);
+        model.addAttribute("spaces", spaceService.findMySpaces(loginMember.memberId()));
         return "post/form";
     }
 
@@ -164,14 +198,28 @@ public class PostController {
                          @RequestParam(value = "content", required = false) String content,
                          @RequestParam(value = "eatenDate", required = false)
                          @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime eatenDate,
+                         @RequestParam(required = false) Long spaceId,
                          @Login LoginMember loginMember,
                          RedirectAttributes redirectAttributes) {
         try {
-            postService.upload(photos, content, eatenDate, loginMember.memberId());
+            postService.upload(photos, content, eatenDate, loginMember.memberId(), spaceId);
         } catch (IllegalArgumentException | IllegalStateException e) {
             redirectAttributes.addFlashAttribute("error", e.getMessage());
             return "redirect:/posts/new";
         }
-        return "redirect:/";
+
+        // 공간에 올렸으면 그 공간으로, 개인 기록이면 내 갤러리로 돌아간다.
+        return spaceId == null ? "redirect:/" : "redirect:/spaces/" + spaceId;
+    }
+
+    /**
+     * 로그인하지 않았으면 null 을 돌려준다.
+     *
+     * 상세 화면은 인터셉터가 막지 않는다. 그래서 loginMember 가 null 일 수 있고,
+     * 그대로 memberId() 를 부르면 NullPointerException 이 난다.
+     * 권한 판단은 서비스가 하므로, 여기서는 "로그인 안 함" 을 null 로 전달만 한다.
+     */
+    private Long loginMemberId(LoginMember loginMember) {
+        return loginMember == null ? null : loginMember.memberId();
     }
 }

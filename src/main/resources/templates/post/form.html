@@ -1,48 +1,70 @@
 <!DOCTYPE html>
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <title>기록 올리기</title>
-</head>
+<head th:replace="~{fragments/layout :: pageHead('기록 올리기 · mealmate')}"></head>
 <body>
 
-<h1>기록 올리기</h1>
+<div class="sheet">
 
-<!-- 등록에 실패했을 때 이유를 보여준다 -->
-<p th:if="${error}" th:text="${error}">오류 메시지</p>
+    <th:block th:replace="~{fragments/layout :: pageTop(${loginMember})}"></th:block>
 
-<!--
-  enctype="multipart/form-data" 가 반드시 있어야 한다.
-  이게 없으면 파일 내용은 서버로 전송되지 않고 파일 이름만 문자열로 넘어간다.
-  파일 업로드가 안 될 때 가장 먼저 확인하는 부분이다.
+    <div class="column">
 
-  method="post" 인 이유는 서버의 상태를 바꾸는 요청이기 때문이다.
-  조회는 GET, 등록·수정·삭제는 POST 로 구분한다.
--->
-<form th:action="@{/posts}" method="post" enctype="multipart/form-data">
+    <p class="back"><a th:href="@{/}">← 내 갤러리</a></p>
 
-    <p>
-        <label>사진 (여러 장 선택 가능)</label><br>
-        <!-- multiple 을 붙이면 파일을 여러 개 고를 수 있다 -->
-        <input type="file" name="photos" accept="image/*" multiple required>
-    </p>
+    <p class="section">기록 올리기</p>
 
-    <p>
-        <label>먹은 날짜 (비워두면 사진의 촬영 시각을 사용합니다)</label><br>
-        <!-- datetime-local 은 날짜와 시각을 함께 입력받는다 -->
-        <input type="datetime-local" name="eatenDate">
-    </p>
+    <!-- 등록에 실패했을 때 이유를 보여준다 -->
+    <div class="msg err" th:if="${error}" th:text="${error}">오류 메시지</div>
 
-    <p>
-        <label>코멘트 (선택)</label><br>
-        <!-- 코멘트는 필수가 아니다. 사진만으로도 완결된 기록이다 -->
-        <textarea name="content" rows="3" cols="40" maxlength="500"></textarea>
-    </p>
+    <!--
+      enctype="multipart/form-data" 가 반드시 있어야 한다.
+      이게 없으면 파일 내용은 서버로 전송되지 않고 파일 이름만 문자열로 넘어간다.
+      파일 업로드가 안 될 때 가장 먼저 확인하는 부분이다.
 
-    <button type="submit">올리기</button>
-</form>
+      method="post" 인 이유는 서버의 상태를 바꾸는 요청이기 때문이다.
+      조회는 GET, 등록·수정·삭제는 POST 로 구분한다.
+    -->
+    <form th:action="@{/posts}" method="post" enctype="multipart/form-data">
 
-<p><a th:href="@{/}">갤러리로 돌아가기</a></p>
+        <label class="field">
+            <span>사진 (여러 장 선택 가능)</span>
+            <!-- multiple 을 붙이면 파일을 여러 개 고를 수 있다 -->
+            <input type="file" name="photos" accept="image/*" multiple required>
+        </label>
+
+        <label class="field">
+            <span>어디에 올릴까요?</span>
+            <!--
+              내가 참여 중인 방만 목록에 나온다.
+              다만 이 목록만 믿지 않는다. 개발자 도구로 값을 남의 방 번호로 바꿔 보낼 수 있어서,
+              서버가 저장 직전에 그 방의 참여자인지 다시 확인한다.
+            -->
+            <select name="spaceId">
+                <option value="">나만 보기 (개인 기록)</option>
+                <option th:each="space : ${spaces}"
+                        th:value="${space.spaceId}"
+                        th:text="${space.name}">방 이름</option>
+            </select>
+        </label>
+
+        <label class="field">
+            <span>먹은 날짜</span>
+            <!-- datetime-local 은 날짜와 시각을 함께 입력받는다 -->
+            <input type="datetime-local" name="eatenDate">
+            <span class="hint">비워두면 사진의 촬영 시각을 사용합니다.</span>
+        </label>
+
+        <label class="field">
+            <span>코멘트 (선택)</span>
+            <!-- 코멘트는 필수가 아니다. 사진만으로도 완결된 기록이다 -->
+            <textarea name="content" rows="3" maxlength="500"></textarea>
+        </label>
+
+        <button type="submit" class="btn wide">올리기</button>
+    </form>
+
+    </div>
+</div>
 
 </body>
 </html>

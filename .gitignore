@@ -44,3 +44,9 @@ uploads/
 food-memory-CLAUDE.md
 food-memory-handoff.md
 .claude/
+
+### 로컬 설정 (API 키 등) ###
+# Spring Boot 가 프로젝트 루트의 config/ 를 자동으로 읽어
+# src/main/resources/application.yml 을 덮어쓴다.
+# 실제 키가 들어가는 곳이므로 절대 커밋하지 않는다.
+/config/

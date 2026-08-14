@@ -7,17 +7,20 @@ import com.foodmemory.app.common.ForbiddenException;
 import com.foodmemory.app.common.NotFoundException;
 import com.foodmemory.app.common.KakaoLocalClient;
 import com.foodmemory.app.dto.GalleryPage;
-import com.foodmemory.app.dto.NearbyPlace;
+import com.foodmemory.app.dto.PlaceCandidate;
 import com.foodmemory.app.dto.PostDetailResponse;
 import com.foodmemory.app.dto.PostListResponse;
+import com.foodmemory.app.dto.PlaceSearchResult;
 import com.foodmemory.app.entity.Member;
 import com.foodmemory.app.entity.Photo;
 import com.foodmemory.app.entity.Post;
-import com.foodmemory.app.entity.Restaurant;
-import com.foodmemory.app.repository.RestaurantRepository;
+import com.foodmemory.app.entity.Place;
+import com.foodmemory.app.entity.Space;
+import com.foodmemory.app.repository.PlaceRepository;
 import com.foodmemory.app.repository.MemberRepository;
 import com.foodmemory.app.repository.PhotoRepository;
 import com.foodmemory.app.repository.PostRepository;
+import com.foodmemory.app.repository.SpaceRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -43,7 +46,9 @@ public class PostServiceImpl implements PostService {
     private final MemberRepository memberRepository;
     private final FileStorage fileStorage;
     private final ExifReader exifReader;
-    private final RestaurantRepository restaurantRepository;
+    private final PlaceRepository placeRepository;
+    private final SpaceRepository spaceRepository;
+    private final SpaceService spaceService;
     private final KakaoLocalClient kakaoLocalClient;
 
     /**
@@ -64,12 +69,37 @@ public class PostServiceImpl implements PostService {
      */
     @Override
     @Transactional(readOnly = true)
-    public GalleryPage getGallery(int page) {
-        // 쿼리 1 — 게시물 + 작성자 + 식당
-        //
+    public GalleryPage getMyGallery(Long memberId, int page) {
         // 정렬은 이미 쿼리의 order by 에 적혀 있으므로 PageRequest 에는 정렬을 주지 않는다.
         // 양쪽에 정렬을 걸면 order by 가 두 번 붙어 어긋난다.
-        Slice<Post> slice = postRepository.findAllWithMember(PageRequest.of(page, PAGE_SIZE));
+        return toGalleryPage(
+                postRepository.findMyPosts(memberId, PageRequest.of(page, PAGE_SIZE)), page);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public GalleryPage getSpaceGallery(Long spaceId, Long memberId, int page) {
+        /*
+         * 쿼리를 돌리기 전에 권한을 먼저 본다.
+         *
+         * findSpacePosts 자체는 참여자인지 가리지 않는다. 그 쿼리만 믿고 부르면
+         * spaceId 만 바꿔가며 남의 공간을 그대로 열어볼 수 있다.
+         */
+        if (!spaceService.isMember(spaceId, memberId)) {
+            throw new ForbiddenException("참여 중인 공간이 아닙니다.");
+        }
+
+        return toGalleryPage(
+                postRepository.findSpacePosts(spaceId, PageRequest.of(page, PAGE_SIZE)), page);
+    }
+
+    /**
+     * 조회한 게시물에 대표 사진을 붙여 화면용으로 바꾼다.
+     *
+     * 내 갤러리와 공간 갤러리가 같은 처리를 하므로 한 곳에 모았다.
+     * 다른 것은 '어떤 게시물을 가져오느냐' 뿐이고, 그건 쿼리가 정한다.
+     */
+    private GalleryPage toGalleryPage(Slice<Post> slice, int page) {
         List<Post> posts = slice.getContent();
         if (posts.isEmpty()) {
             return GalleryPage.empty(page);
@@ -77,7 +107,7 @@ public class PostServiceImpl implements PostService {
 
         List<Long> postIds = posts.stream().map(Post::getPostId).toList();
 
-        // 쿼리 2 — 사진을 한 번에 가져와 게시물별로 묶는다.
+        // 사진을 한 번에 가져와 게시물별로 묶는다.
         // 게시물마다 사진을 조회하면 게시물 수만큼 쿼리가 늘어난다(N+1).
         Map<Long, List<Photo>> photosByPost = photoRepository.findByPostIds(postIds)
                 .stream()
@@ -107,10 +137,12 @@ public class PostServiceImpl implements PostService {
      */
     @Override
     @Transactional(readOnly = true)
-    public PostDetailResponse getDetail(Long postId) {
-        // 쿼리 1 — 게시물 + 작성자 + 식당
+    public PostDetailResponse getDetail(Long postId, Long loginMemberId) {
+        // 쿼리 1 — 게시물 + 작성자 + 장소 + 공간
         Post post = postRepository.findDetailById(postId)
                 .orElseThrow(() -> new NotFoundException("존재하지 않는 게시물입니다."));
+
+        requireCanView(post, loginMemberId);
 
         // 쿼리 2 — 사진 전체. 목록과 달리 상세는 전부 필요하다.
         List<String> photoPaths = photoRepository
@@ -123,7 +155,33 @@ public class PostServiceImpl implements PostService {
     }
 
     /**
-     * 게시물에 붙은 첫 사진의 좌표로 주변 음식점을 찾는다.
+     * 이 기록을 볼 수 있는 사람인지 확인한다.
+     *
+     *   개인 기록 → 작성자 본인만
+     *   공간 기록 → 그 공간의 참여자만 (작성자가 아니어도 된다)
+     *
+     * 목록에서 안 보이게 하는 것만으로는 부족하다.
+     * 주소창에 /posts/12 를 직접 쳐서 들어올 수 있기 때문이다.
+     */
+    private void requireCanView(Post post, Long loginMemberId) {
+        if (loginMemberId == null) {
+            throw new ForbiddenException("로그인이 필요합니다.");
+        }
+
+        if (post.isPersonal()) {
+            if (!post.getMember().getMemberId().equals(loginMemberId)) {
+                throw new ForbiddenException("볼 수 없는 기록입니다.");
+            }
+            return;
+        }
+
+        if (!spaceService.isMember(post.getSpace().getSpaceId(), loginMemberId)) {
+            throw new ForbiddenException("참여 중인 공간이 아닙니다.");
+        }
+    }
+
+    /**
+     * 게시물에 붙은 첫 사진의 좌표로 주변 장소를 찾는다.
      *
      * 좌표를 DB 에 따로 저장해두지 않았지만 문제되지 않는다.
      * 사진 파일 자체가 원본이므로 필요할 때 다시 읽으면 된다.
@@ -131,48 +189,80 @@ public class PostServiceImpl implements PostService {
      */
     @Override
     @Transactional(readOnly = true)
-    public List<NearbyPlace> findNearbyPlaces(Long postId) {
+    public PlaceSearchResult findPlaceCandidates(Long postId, String keyword) {
         if (!kakaoLocalClient.isConfigured()) {
             throw new IllegalStateException("지도 API 키가 설정되지 않았습니다.");
         }
 
-        List<Photo> photos = photoRepository.findByPostPostIdOrderByPhotoIdAsc(postId);
-        if (photos.isEmpty()) {
-            throw new IllegalArgumentException("사진이 없어 위치를 찾을 수 없습니다.");
+        PhotoMetadata metadata = readFirstPhotoMetadata(postId);
+        boolean hasLocation = metadata.hasLocation();
+
+        // 사용자가 이름을 입력했으면 그쪽이 우선이다.
+        // 좌표가 있어도 후보에 원하는 가게가 없을 수 있다(간판 이름이 등록명과 다른 경우 등).
+        if (keyword != null && !keyword.isBlank()) {
+            return PlaceSearchResult.byKeyword(
+                    kakaoLocalClient.searchByKeyword(
+                            keyword,
+                            hasLocation ? metadata.latitude() : null,
+                            hasLocation ? metadata.longitude() : null),
+                    keyword,
+                    hasLocation);
         }
 
-        PhotoMetadata metadata = exifReader.read(fileStorage.resolve(photos.get(0).getFilePath()));
-        if (!metadata.hasLocation()) {
-            throw new IllegalArgumentException(
-                    "사진에 위치 정보가 없습니다. 메신저를 거친 사진이거나 위치 저장이 꺼져 있었을 수 있습니다.");
+        if (!hasLocation) {
+            // 오류가 아니다. 화면이 검색창을 보여주면 된다.
+            return PlaceSearchResult.noLocation();
         }
 
-        return kakaoLocalClient.searchRestaurants(metadata.latitude(), metadata.longitude());
+        return PlaceSearchResult.byLocation(
+                kakaoLocalClient.searchNearby(metadata.latitude(), metadata.longitude()));
     }
 
     /**
-     * 사용자가 고른 장소를 게시물의 식당으로 지정한다.
+     * 게시물의 첫 사진에서 EXIF 를 읽는다. 사진이 없으면 빈 값을 돌려준다.
      *
-     * 이미 저장된 식당이면 다시 만들지 않고 그것을 쓴다.
-     * 같은 가게에 여러 사람이 다녀와도 식당 테이블에는 한 줄만 있어야
+     * 사진이 없는 것도 예외로 다루지 않는다. 좌표가 없는 것과 마찬가지로
+     * '이름으로 검색하면 되는' 상황이기 때문이다.
+     */
+    private PhotoMetadata readFirstPhotoMetadata(Long postId) {
+        List<Photo> photos = photoRepository.findByPostPostIdOrderByPhotoIdAsc(postId);
+        if (photos.isEmpty()) {
+            return PhotoMetadata.empty();
+        }
+        return exifReader.read(fileStorage.resolve(photos.get(0).getFilePath()));
+    }
+
+    /**
+     * 사용자가 고른 장소를 게시물에 연결한다.
+     *
+     * 이미 저장된 장소면 다시 만들지 않고 그것을 쓴다.
+     * 같은 곳에 여러 사람이 다녀와도 장소 테이블에는 한 줄만 있어야
      * '이 집에서 먹은 것들 모아보기' 가 성립한다.
      */
     @Override
     @Transactional
-    public void assignRestaurant(Long postId, String placeId, Long loginMemberId) {
+    public void assignPlace(Long postId, String kakaoPlaceId, String keyword, Long loginMemberId) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new NotFoundException("존재하지 않는 게시물입니다."));
 
         requireOwner(post, loginMemberId);
 
-        NearbyPlace selected = findNearbyPlaces(postId).stream()
-                .filter(place -> place.placeId().equals(placeId))
+        /*
+         * 화면이 보낸 것은 카카오 장소 ID 하나뿐이고, 이름·주소·좌표는 여기서 다시 조회한다.
+         *
+         * 화면이 보낸 값을 그대로 저장하지 않는 이유:
+         *   개발자 도구로 이름과 좌표를 고쳐 보내면 그 값이 장소 테이블에 그대로 들어간다.
+         *   장소는 여러 게시물이 공유하는 데이터라, 한 사람이 넣은 거짓 정보를
+         *   나중에 같은 곳을 고른 다른 사람이 보게 된다.
+         */
+        PlaceCandidate selected = findPlaceCandidates(postId, keyword).places().stream()
+                .filter(candidate -> candidate.kakaoPlaceId().equals(kakaoPlaceId))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("선택한 장소를 찾을 수 없습니다."));
 
-        Restaurant restaurant = restaurantRepository.findByPlaceId(selected.placeId())
-                .orElseGet(() -> restaurantRepository.save(Restaurant.from(
-                        selected.placeId(),
+        Place place = placeRepository.findByKakaoPlaceId(selected.kakaoPlaceId())
+                .orElseGet(() -> placeRepository.save(Place.from(
+                        selected.kakaoPlaceId(),
                         selected.name(),
                         selected.address(),
                         selected.latitude(),
@@ -180,7 +270,7 @@ public class PostServiceImpl implements PostService {
 
         // UPDATE 문을 직접 쓰지 않는다.
         // 트랜잭션이 끝날 때 영속성 컨텍스트가 값이 바뀐 것을 감지해 UPDATE 를 만들어 보낸다.
-        post.assignRestaurant(restaurant);
+        post.assignPlace(place);
     }
 
     /**
@@ -192,9 +282,25 @@ public class PostServiceImpl implements PostService {
      */
     @Override
     @Transactional
-    public Long upload(List<MultipartFile> photos, String content, LocalDateTime eatenDate, Long writerId) {
+    public Long upload(List<MultipartFile> photos, String content, LocalDateTime eatenDate,
+                       Long writerId, Long spaceId) {
         if (photos == null || photos.isEmpty() || photos.stream().allMatch(MultipartFile::isEmpty)) {
             throw new IllegalArgumentException("사진을 한 장 이상 올려주세요.");
+        }
+
+        /*
+         * 공간에 올리려면 그 공간의 참여자여야 한다.
+         *
+         * 화면의 선택 목록에는 내가 속한 공간만 나오지만, 그것만 믿을 수 없다.
+         * 폼의 값을 남의 spaceId 로 바꿔 보내면 그 공간에 사진을 밀어 넣을 수 있다.
+         */
+        Space space = null;
+        if (spaceId != null) {
+            if (!spaceService.isMember(spaceId, writerId)) {
+                throw new ForbiddenException("참여 중인 공간이 아닙니다.");
+            }
+            space = spaceRepository.findById(spaceId)
+                    .orElseThrow(() -> new NotFoundException("존재하지 않는 공간입니다."));
         }
 
         // 첫 번째 사진에서 촬영 시각과 좌표를 읽는다.
@@ -225,8 +331,9 @@ public class PostServiceImpl implements PostService {
         // 저장 전에 한 번 정리해서 DB 에는 NULL 만 들어가게 한다.
         String normalizedContent = (content == null || content.isBlank()) ? null : content.trim();
 
-        // 식당은 아직 지도 API 를 붙이지 않아 null 로 둔다.
-        Post post = postRepository.save(Post.create(writer, null, normalizedContent, resolvedEatenDate));
+        // 장소는 업로드 시점에 정하지 않는다. 올린 뒤 상세 화면에서 연결한다.
+        Post post = postRepository.save(
+                Post.create(writer, space, null, normalizedContent, resolvedEatenDate));
 
         for (MultipartFile file : photos) {
             if (file.isEmpty()) {
