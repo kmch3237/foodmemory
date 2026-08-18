@@ -376,3 +376,56 @@ CREATE TABLE photo (
 ) ENGINE=InnoDB
   DEFAULT CHARSET=utf8mb4
   COMMENT='사진';
+
+
+-- ============================================================
+--  6. comment  (댓글)
+-- ============================================================
+--
+-- 공유 방이 생기면서 여러 사람이 같은 기록을 보게 되어 만들었다.
+-- 혼자 쓰던 때에는 필요가 없어 MVP 에서 뺐던 기능이다.
+--
+-- 이 서비스는 '별점·리뷰 없음' 을 원칙으로 두고 있다. 댓글은 그와 다르다.
+-- 별점은 가게를 평가하는 지표라 조작할 이유가 생기지만,
+-- 댓글은 아는 사람끼리 그 기록에 반응하는 말이라 평가로 쌓이지 않는다.
+
+CREATE TABLE comment (
+
+    comment_id  BIGINT        NOT NULL AUTO_INCREMENT  COMMENT '댓글 식별자',
+
+    -- 어느 기록에 달린 댓글인가. 게시물 없는 댓글은 존재할 수 없다.
+    post_id     BIGINT        NOT NULL                 COMMENT '달린 게시물',
+
+    -- 누가 썼는가. 작성자 없는 댓글도 존재할 수 없다.
+    member_id   BIGINT        NOT NULL                 COMMENT '작성자',
+
+    -- post.content 는 NULL 을 허용했지만 여기는 NOT NULL 이다.
+    --   게시물은 사진만으로도 완결된 기록이라 글이 없어도 된다.
+    --   댓글은 글 자체가 목적이라, 내용이 없으면 그 행이 존재할 이유가 없다.
+    -- 길이를 300 으로 둔 이유:
+    --   게시물 코멘트(500)보다 짧게 잡았다. 댓글은 긴 글을 쓰는 자리가 아니고,
+    --   길이를 열어두면 화면에서 한 댓글이 목록 전체를 밀어낸다.
+    content     VARCHAR(300)  NOT NULL                 COMMENT '댓글 내용',
+
+    created_at  DATETIME      NOT NULL                 COMMENT '작성 시각',
+    updated_at  DATETIME      NOT NULL                 COMMENT '마지막 수정 시각',
+
+    PRIMARY KEY (comment_id),
+
+    -- 인덱스를 거는 이유:
+    --   댓글은 언제나 "이 게시물의 댓글을 다 가져와" 로 조회한다.
+    --   인덱스가 없으면 DB 가 comment 테이블 전체를 훑으며 post_id 를 하나씩 비교한다.
+    --   댓글이 10만 건이면 상세 화면 한 번에 10만 건을 읽는다.
+    -- FK 를 걸면 MySQL(InnoDB)이 인덱스를 자동으로 만들어 주지만,
+    -- 정렬까지 함께 태우려고 (post_id, comment_id) 순서로 직접 만든다.
+    KEY idx_comment_post (post_id, comment_id),
+
+    CONSTRAINT fk_comment_post
+        FOREIGN KEY (post_id)   REFERENCES post (post_id),
+
+    CONSTRAINT fk_comment_member
+        FOREIGN KEY (member_id) REFERENCES member (member_id)
+
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COMMENT='댓글';

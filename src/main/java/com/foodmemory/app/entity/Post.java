@@ -137,4 +137,29 @@ public class Post extends BaseEntity {
     public void assignPlace(Place place) {
         this.place = place;
     }
+
+    /**
+     * 기록의 내용을 고친다.
+     *
+     * 사진은 건드리지 않는다. 사진을 바꾸는 것은 '이 기록을 고친다' 가 아니라
+     * 사실상 다른 기록이 되는 일이라, 지우고 다시 올리는 편이 명확하다.
+     * 인스타그램도 같은 이유로 글만 고칠 수 있게 되어 있다.
+     *
+     * 장소가 빠져 있는 이유는 위의 assignPlace 가 이미 그 일을 하기 때문이다.
+     * 장소는 고르는 화면이 따로 있어서 흐름 자체가 다르다.
+     *
+     * space 에 null 을 넣으면 개인 기록으로 되돌린다.
+     * 이 경우 그 방의 다른 참여자들은 더 이상 이 기록을 볼 수 없게 된다.
+     * 내가 올린 것을 내가 거두는 것이므로 허용하되, 화면에서 그 사실을 알려준다.
+     *
+     * 이 메서드는 UPDATE 문을 만들지 않는다. 필드 값만 바꾼다.
+     * 트랜잭션이 끝날 때 영속성 컨텍스트가 처음 읽어둔 값(스냅샷)과 지금 값을 비교해
+     * 달라진 컬럼만 골라 UPDATE 를 만들어 보낸다. 이것을 변경 감지(더티 체킹)라고 한다.
+     * 그래서 서비스에서 save() 를 부르지 않는다.
+     */
+    public void update(String content, LocalDateTime eatenDate, Space space) {
+        this.content = content;
+        this.eatenDate = eatenDate;
+        this.space = space;
+    }
 }

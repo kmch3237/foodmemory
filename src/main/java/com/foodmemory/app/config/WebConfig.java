@@ -74,7 +74,9 @@ public class WebConfig implements WebMvcConfigurer {
                 .addPathPatterns(
                         "/posts",                  // 업로드 처리
                         "/posts/*",                // 상세·업로드 폼·다음 페이지
+                        "/posts/*/edit",           // 수정 폼·수정 저장
                         "/posts/*/delete",         // 삭제
+                        "/posts/*/comments/**",    // 댓글 등록·수정·삭제
                         "/posts/*/places",         // 장소 후보 조회
                         "/posts/*/place",          // 장소 지정
                         "/spaces",                 // 공간 목록·생성

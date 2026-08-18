@@ -3,6 +3,7 @@ package com.foodmemory.app.controller;
 import com.foodmemory.app.auth.Login;
 import com.foodmemory.app.auth.LoginMember;
 import com.foodmemory.app.dto.GalleryPage;
+import com.foodmemory.app.service.CommentService;
 import com.foodmemory.app.service.PostService;
 import com.foodmemory.app.service.SpaceService;
 import jakarta.servlet.http.HttpServletResponse;
@@ -27,6 +28,7 @@ public class PostController {
 
     private final PostService postService;
     private final SpaceService spaceService;
+    private final CommentService commentService;
 
     /**
      * 사진 주소의 앞부분. DB 에는 저장하지 않고 화면에서 붙인다.
@@ -109,14 +111,74 @@ public class PostController {
      */
     @GetMapping("/posts/{postId}")
     public String detail(@PathVariable Long postId,
+                         @RequestParam(name = "commentPage", defaultValue = "0") int commentPage,
                          @Login LoginMember loginMember,
                          Model model) {
         // 볼 수 있는 사람인지는 서비스가 판단한다.
         // 개인 기록이면 작성자만, 공간 기록이면 그 공간의 참여자만 통과한다.
         model.addAttribute("post", postService.getDetail(postId, loginMemberId(loginMember)));
+
+        /*
+         * 댓글은 상세 화면에서만 필요하므로 여기서 따로 조회한다.
+         * 게시물 엔티티에 댓글 목록을 매달아두면 갤러리처럼 댓글이 필요 없는 화면에서도
+         * 조회가 일어나기 쉽다. 필요한 화면에서 필요한 만큼만 가져온다.
+         *
+         * 쪽 번호를 주소(?commentPage=1)로 받는 이유:
+         *   '지금 몇 쪽을 보고 있는가' 는 기록에 저장될 성질이 아니라 그 순간의 상태다.
+         *   주소에 담아두면 그 쪽을 그대로 링크로 주고받을 수 있고,
+         *   댓글을 단 뒤 그 댓글이 있는 쪽으로 돌려보내기도 쉽다.
+         */
+        model.addAttribute("comments",
+                commentService.findByPost(postId, loginMemberId(loginMember), commentPage));
+
         model.addAttribute("loginMember", loginMember);
         model.addAttribute("uploadUrlPrefix", uploadUrlPrefix);
         return "post/detail";
+    }
+
+    /**
+     * 수정 폼 화면.
+     *
+     * 등록 폼(post/form.html)을 재사용하지 않고 따로 만들었다.
+     * 등록 폼에는 파일 선택 칸이 필수로 들어 있는데 수정에는 그 칸이 없어야 한다.
+     * 한 템플릿에 "등록일 때만 보여줘" 같은 분기를 넣기 시작하면
+     * 파일 하나가 두 가지 일을 하게 되어 읽기 어려워진다.
+     *
+     * 내가 속한 공간 목록을 함께 넘긴다. 다른 방으로 옮길 수 있어야 하기 때문이다.
+     */
+    @GetMapping("/posts/{postId}/edit")
+    public String editForm(@PathVariable Long postId,
+                           @Login LoginMember loginMember,
+                           Model model) {
+        // 남의 기록이면 서비스가 여기서 막는다.
+        // 폼을 다 채우고 저장을 눌렀을 때 거부하는 것보다, 열리지 않는 편이 낫다.
+        model.addAttribute("form", postService.getEditForm(postId, loginMember.memberId()));
+        model.addAttribute("spaces", spaceService.findMySpaces(loginMember.memberId()));
+        model.addAttribute("loginMember", loginMember);
+        return "post/edit";
+    }
+
+    /**
+     * 수정 저장.
+     *
+     * PUT 이 아니라 POST 인 이유:
+     *   HTML 의 form 태그는 GET 과 POST 만 보낼 수 있다. 브라우저가 PUT 을 지원하지 않는다.
+     *   숨은 필드로 흉내내는 방법이 있지만, 그러려고 설정을 하나 더 켜야 한다.
+     *   지금은 얻는 것이 없어서 POST 로 둔다.
+     *
+     * 저장 뒤 redirect 로 상세 화면에 보내는 이유는 등록과 같다.
+     * 화면을 그대로 반환하면 새로고침할 때 브라우저가 POST 를 다시 보내 같은 저장이 반복된다.
+     */
+    @PostMapping("/posts/{postId}/edit")
+    public String edit(@PathVariable Long postId,
+                       @RequestParam(value = "content", required = false) String content,
+                       @RequestParam(value = "eatenDate", required = false)
+                       @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime eatenDate,
+                       @RequestParam(value = "spaceId", required = false) Long spaceId,
+                       @Login LoginMember loginMember) {
+
+        postService.update(postId, content, eatenDate, spaceId, loginMember.memberId());
+        return "redirect:/posts/" + postId;
     }
 
     /**

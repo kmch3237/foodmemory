@@ -9,6 +9,7 @@ import com.foodmemory.app.common.KakaoLocalClient;
 import com.foodmemory.app.dto.GalleryPage;
 import com.foodmemory.app.dto.PlaceCandidate;
 import com.foodmemory.app.dto.PostDetailResponse;
+import com.foodmemory.app.dto.PostEditForm;
 import com.foodmemory.app.dto.PostListResponse;
 import com.foodmemory.app.dto.PlaceSearchResult;
 import com.foodmemory.app.entity.Member;
@@ -16,6 +17,7 @@ import com.foodmemory.app.entity.Photo;
 import com.foodmemory.app.entity.Post;
 import com.foodmemory.app.entity.Place;
 import com.foodmemory.app.entity.Space;
+import com.foodmemory.app.repository.CommentRepository;
 import com.foodmemory.app.repository.PlaceRepository;
 import com.foodmemory.app.repository.MemberRepository;
 import com.foodmemory.app.repository.PhotoRepository;
@@ -43,6 +45,7 @@ public class PostServiceImpl implements PostService {
 
     private final PostRepository postRepository;
     private final PhotoRepository photoRepository;
+    private final CommentRepository commentRepository;
     private final MemberRepository memberRepository;
     private final FileStorage fileStorage;
     private final ExifReader exifReader;
@@ -288,20 +291,7 @@ public class PostServiceImpl implements PostService {
             throw new IllegalArgumentException("사진을 한 장 이상 올려주세요.");
         }
 
-        /*
-         * 공간에 올리려면 그 공간의 참여자여야 한다.
-         *
-         * 화면의 선택 목록에는 내가 속한 공간만 나오지만, 그것만 믿을 수 없다.
-         * 폼의 값을 남의 spaceId 로 바꿔 보내면 그 공간에 사진을 밀어 넣을 수 있다.
-         */
-        Space space = null;
-        if (spaceId != null) {
-            if (!spaceService.isMember(spaceId, writerId)) {
-                throw new ForbiddenException("참여 중인 공간이 아닙니다.");
-            }
-            space = spaceRepository.findById(spaceId)
-                    .orElseThrow(() -> new NotFoundException("존재하지 않는 공간입니다."));
-        }
+        Space space = resolveSpace(spaceId, writerId);
 
         // 첫 번째 사진에서 촬영 시각과 좌표를 읽는다.
         // 한 게시물의 사진들은 같은 자리에서 찍은 것으로 보므로 대표 한 장이면 충분하다.
@@ -325,11 +315,7 @@ public class PostServiceImpl implements PostService {
         Member writer = memberRepository.findById(writerId)
                 .orElseThrow(() -> new IllegalStateException("로그인 정보가 올바르지 않습니다. 다시 로그인해주세요."));
 
-        // 폼에서 코멘트를 비워두면 null 이 아니라 빈 문자열("")이 넘어온다.
-        // MySQL 에서는 ''와 NULL 이 서로 다른 값이라, 그대로 저장하면
-        // "코멘트 없음" 을 판단할 때 두 경우를 모두 검사해야 한다.
-        // 저장 전에 한 번 정리해서 DB 에는 NULL 만 들어가게 한다.
-        String normalizedContent = (content == null || content.isBlank()) ? null : content.trim();
+        String normalizedContent = normalizeContent(content);
 
         // 장소는 업로드 시점에 정하지 않는다. 올린 뒤 상세 화면에서 연결한다.
         Post post = postRepository.save(
@@ -344,6 +330,117 @@ public class PostServiceImpl implements PostService {
         }
 
         return post.getPostId();
+    }
+
+    /**
+     * 이 기록을 볼 수 있는 사람인지 확인한다. 댓글 쪽에서 빌려 쓴다.
+     *
+     * 게시물을 한 번 더 조회하게 되지만 그대로 둔다.
+     * 규칙을 복사해 두 곳에 적어두는 쪽이 훨씬 위험하다.
+     * 나중에 공개 범위 규칙이 바뀔 때 한 곳만 고치면 되는 것이 이 구조의 값어치다.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public void requireCanView(Long postId, Long loginMemberId) {
+        Post post = postRepository.findDetailById(postId)
+                .orElseThrow(() -> new NotFoundException("존재하지 않는 게시물입니다."));
+
+        requireCanView(post, loginMemberId);
+    }
+
+    /**
+     * 수정 폼에 채울 지금 값을 가져온다.
+     *
+     * findById 가 아니라 findDetailById 를 쓰는 이유:
+     *   폼에 넣을 값 중에 공간 번호가 있다. findById 로 가져오면 공간은 LAZY 라서
+     *   실제로 꺼낼 때 쿼리가 한 번 더 나간다. 어차피 필요한 값이면 처음부터 같이 읽는다.
+     *
+     * readOnly = true 를 붙였다. 여기서는 값을 바꾸지 않기 때문이다.
+     * JPA 는 이 표시를 보고 변경 감지에 쓸 스냅샷을 만들지 않는다. 그만큼 가볍다.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public PostEditForm getEditForm(Long postId, Long loginMemberId) {
+        Post post = postRepository.findDetailById(postId)
+                .orElseThrow(() -> new NotFoundException("존재하지 않는 게시물입니다."));
+
+        requireOwner(post, loginMemberId);
+
+        return PostEditForm.from(post);
+    }
+
+    /**
+     * 기록의 코멘트·먹은 날짜·공간을 고친다.
+     *
+     * 이 메서드에 save() 가 없는 것이 이상해 보일 수 있다. 없는 게 맞다.
+     *   postRepository 로 꺼낸 순간 이 Post 는 영속성 컨텍스트가 관리하는 상태가 된다.
+     *   JPA 는 그때의 값을 따로 복사해 둔다(스냅샷).
+     *   메서드가 끝나고 트랜잭션이 커밋될 때 지금 값과 스냅샷을 비교해,
+     *   달라진 컬럼만 골라 UPDATE 문을 만들어 보낸다.
+     *
+     * 그래서 @Transactional 이 없으면 아무 일도 일어나지 않는다. 예외도 나지 않는다.
+     * 비교하는 시점 자체가 '트랜잭션이 끝날 때' 라서, 트랜잭션이 없으면
+     * 조회가 끝나는 순간 관리 대상에서 빠지고 값을 바꿔도 아무도 보지 않는다.
+     * 같은 이유로 readOnly = true 를 붙여도 저장되지 않는다.
+     */
+    @Override
+    @Transactional
+    public void update(Long postId, String content, LocalDateTime eatenDate,
+                       Long spaceId, Long loginMemberId) {
+
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new NotFoundException("존재하지 않는 게시물입니다."));
+
+        requireOwner(post, loginMemberId);
+
+        // 등록할 때와 같은 검사를 그대로 통과시킨다.
+        // 등록에서만 막고 수정에서 빠뜨리면, 개인 기록으로 올린 뒤 수정으로
+        // 남의 방에 밀어 넣는 우회로가 열린다. 들어오는 문이 둘이면 둘 다 잠가야 한다.
+        Space space = resolveSpace(spaceId, loginMemberId);
+
+        // 날짜를 비우고 저장하면 지금 값을 그대로 둔다.
+        // 등록 때처럼 '비면 사진 촬영 시각' 으로 채울 수는 없다. 이미 저장된 값이 있으므로
+        // 사용자가 비워둔 것을 '지금 값을 유지하겠다' 는 뜻으로 읽는 편이 자연스럽다.
+        // eaten_date 는 NOT NULL 이라 null 을 그대로 넣으면 저장 자체가 실패한다.
+        LocalDateTime resolvedEatenDate = (eatenDate != null) ? eatenDate : post.getEatenDate();
+
+        post.update(normalizeContent(content), resolvedEatenDate, space);
+
+        log.info("게시물 수정: postId={}, spaceId={}", postId, spaceId);
+    }
+
+    /**
+     * 공간 번호를 실제 공간으로 바꾼다. null 이면 개인 기록이라는 뜻이라 그대로 null 을 돌려준다.
+     *
+     * 참여자인지 먼저 확인하는 이유:
+     *   화면의 선택 목록에는 내가 속한 공간만 나오지만, 그것만 믿을 수 없다.
+     *   개발자 도구로 폼의 값을 남의 spaceId 로 바꿔 보내면 그 공간에 사진을 밀어 넣을 수 있다.
+     *   화면은 편의를 위한 것이고, 판단은 서버가 한다.
+     *
+     * 등록과 수정 두 곳에서 같은 검사가 필요해 메서드로 뺐다.
+     * 규칙이 한 군데에 있어야 나중에 바뀔 때 한 곳만 고치면 된다.
+     */
+    private Space resolveSpace(Long spaceId, Long memberId) {
+        if (spaceId == null) {
+            return null;
+        }
+        if (!spaceService.isMember(spaceId, memberId)) {
+            throw new ForbiddenException("참여 중인 공간이 아닙니다.");
+        }
+        return spaceRepository.findById(spaceId)
+                .orElseThrow(() -> new NotFoundException("존재하지 않는 공간입니다."));
+    }
+
+    /**
+     * 폼에서 온 코멘트를 저장할 형태로 다듬는다.
+     *
+     * 폼에서 코멘트를 비워두면 null 이 아니라 빈 문자열("")이 넘어온다.
+     * MySQL 에서는 ''와 NULL 이 서로 다른 값이라, 그대로 저장하면
+     * "코멘트 없음" 을 판단할 때 두 경우를 모두 검사해야 한다.
+     * 저장 전에 한 번 정리해서 DB 에는 NULL 만 들어가게 한다.
+     */
+    private String normalizeContent(String content) {
+        return (content == null || content.isBlank()) ? null : content.trim();
     }
 
     /**
@@ -365,6 +462,10 @@ public class PostServiceImpl implements PostService {
 
         // 파일 경로를 미리 챙겨둔다. 행을 지운 뒤에는 어떤 파일이었는지 알 수 없다.
         List<String> filePaths = photos.stream().map(Photo::getFilePath).toList();
+
+        // 댓글도 post 를 FK 로 참조한다. 남겨두면 게시물 삭제를 DB 가 거부한다.
+        // 사진과 마찬가지로 자식부터 정리한다.
+        commentRepository.deleteByPostPostId(postId);
 
         photoRepository.deleteAll(photos);
         postRepository.delete(post);
