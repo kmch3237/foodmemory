@@ -317,6 +317,14 @@ input[type=checkbox] { width: auto; }
     .sheet { padding: 20px 16px 40px; border-left: none; border-right: none; }
     .rooms, .gallery { grid-template-columns: repeat(2, 1fr); }
     .logo { font-size: 24px; padding: 8px 28px; }
+
+    /* 머리말을 위아래로 쌓는다.
+       .who 는 PC 에서 position: absolute 로 오른쪽 끝에 붙어 있는데,
+       흐름에서 빠져 있어 자리를 차지하지 않는다. 그래서 화면이 좁아지면
+       로고를 밀어내지 못하고 로고 박스 위에 그대로 겹쳐 버린다.
+       static 으로 되돌려 흐름 안에 넣으면 로고 아래로 내려간다. */
+    .head { flex-direction: column; gap: 10px; }
+    .who  { position: static; font-size: 15px; }
 }
 
 /* ── 기록 상세: 왼쪽 사진, 오른쪽 댓글 ─────────────────────────
