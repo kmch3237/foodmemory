@@ -1,0 +1,21 @@
+{
+  "name": "mealmate — 음식 추억 기록",
+  "short_name": "mealmate",
+
+  "start_url": "/",
+  "scope": "/",
+
+  "display": "standalone",
+
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+
+  "lang": "ko",
+  "description": "언제 어디서 무엇을 먹었는지 사진으로 기록하고 다시 꺼내봅니다.",
+
+  "icons": [
+    { "src": "/icons/icon-192.png",          "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png",          "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
