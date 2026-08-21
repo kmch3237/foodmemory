@@ -532,3 +532,19 @@ input[type=checkbox] { width: auto; }
 
 .pager a:hover { background: var(--hover); }
 .pager .hint { margin-top: 0; }
+
+/* ── 사진 고르기 버튼 ─────────────────────────────────────────
+   input type=file 은 브라우저마다 생김새가 제각각이라 꾸밀 수가 없다.
+   그래서 입력칸은 숨기고 label 을 버튼처럼 만든다.
+   label 을 누르면 안에 든 input 이 눌린 것과 같아진다.
+   ------------------------------------------------------------ */
+.pick-row {
+    display: flex;
+    gap: 10px;
+}
+
+.pick {
+    flex: 1;
+    text-align: center;
+    cursor: pointer;
+}
