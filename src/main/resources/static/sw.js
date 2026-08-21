@@ -13,7 +13,7 @@
  */
 
 // 아이콘과 CSS 처럼 잘 안 바뀌는 것만 미리 받아둔다
-const CACHE = 'mealmate-v1';
+const CACHE = 'mealmate-v2';
 const PRECACHE = [
     '/css/app.css',
     '/icons/icon-192.png',
@@ -59,7 +59,23 @@ self.addEventListener('fetch', (event) => {
 
     if (!isStatic) return;
 
+    /*
+     * 네트워크를 먼저 보고, 실패하면 캐시로 넘어간다.
+     *
+     * 반대로 했다가 사고가 났다. 캐시를 먼저 보게 해뒀더니
+     * CSS 를 고쳐 배포해도 폰에는 옛것이 계속 나왔다.
+     * 화면이 안 바뀌는데 서버에는 새 파일이 있어서 원인을 찾기 어려웠다.
+     *
+     * 캐시는 '인터넷이 끊겼을 때를 위한 예비' 로만 둔다.
+     * 받아온 것은 다음을 위해 캐시에 다시 넣어둔다.
+     */
     event.respondWith(
-        caches.match(req).then((hit) => hit || fetch(req))
+        fetch(req)
+            .then((res) => {
+                const copy = res.clone();
+                caches.open(CACHE).then((cache) => cache.put(req, copy)).catch(() => {});
+                return res;
+            })
+            .catch(() => caches.match(req))
     );
 });

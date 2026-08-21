@@ -565,9 +565,9 @@ input[type=checkbox] { width: auto; }
 }
 
 .shot {
-    display: block;
-    width: 66px;
-    height: 66px;
+    /* 글자 두 줄이 들어갈 만큼 키웠다. 66px 이면 글자가 테두리에 닿는다 */
+    width: 84px;
+    height: 84px;
     border-radius: 50%;
     border: 3px solid var(--line);
     background: var(--paper);
@@ -579,12 +579,13 @@ input[type=checkbox] { width: auto; }
     justify-content: center;
 }
 
-/* 안쪽 원 — 카메라 셔터처럼 보이게 */
-.shot-inner {
-    width: 46px;
-    height: 46px;
-    border-radius: 50%;
-    border: 2px solid var(--line);
+/* 원 안의 글자. 두 줄이라 줄간격을 좁힌다 */
+.shot-text {
+    font-size: 17px;
+    line-height: 1.15;
+    text-align: center;
+    color: var(--ink);
+    user-select: none;   /* 길게 눌러도 글자가 선택되지 않게 */
 }
 
 .shot:active { background: var(--hover); }
