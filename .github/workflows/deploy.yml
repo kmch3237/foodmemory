@@ -1,0 +1,82 @@
+# main 에 push 하면 GitHub 가 빌드해서 EC2 에 올리고 다시 띄운다.
+#
+# 내 노트북은 아무것도 하지 않는다. push 만 하면 된다.
+# 서버에 직접 들어가 파일을 옮기던 일을 그대로 옮겨 적은 것이다.
+
+name: Deploy to EC2
+
+on:
+  push:
+    branches: [ main ]
+  # 코드를 안 바꾸고 배포만 다시 하고 싶을 때 손으로 실행할 수 있게 열어둔다
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 코드 가져오기
+        uses: actions/checkout@v4
+
+      # 자바 17 이 아니라 21 이다. 프로젝트가 21 로 되어 있어서
+      # 버전이 낮으면 빌드가 아예 안 된다.
+      - name: JDK 21 준비
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: gradlew 실행 권한 주기
+        run: chmod +x ./gradlew
+
+      # build 가 아니라 bootJar 를 쓴다.
+      #   build 는 테스트까지 돌리는데, 우리 테스트는 MySQL 이 있어야 통과한다.
+      #   GitHub 가 빌려주는 이 컴퓨터에는 DB 가 없어서 반드시 실패한다.
+      #   테스트를 CI 에서 돌리려면 DB 를 띄워주는 설정이 따로 필요하다. 그건 나중에.
+      - name: jar 만들기
+        run: ./gradlew bootJar
+
+      - name: SSH 열쇠 준비
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          # 처음 접속하는 서버인지 확인하는 물음을 미리 없앤다.
+          # 자동화에는 "yes" 를 칠 사람이 없다.
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+
+      # 돌아가는 중인 app.jar 를 바로 덮어쓰면 안 된다.
+      # 자바가 그 파일을 열어둔 채로 읽고 있어서 내용이 깨질 수 있다.
+      # 다른 이름으로 올린 뒤 이름만 바꾼다.
+      - name: jar 서버로 보내기
+        run: |
+          scp -i ~/.ssh/deploy_key \
+            build/libs/foodmemory-0.0.1-SNAPSHOT.jar \
+            ubuntu@${{ secrets.EC2_HOST }}:/home/ubuntu/app/app.jar.new
+
+      - name: 교체하고 다시 띄우기
+        run: |
+          ssh -i ~/.ssh/deploy_key ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
+            set -e
+            mv /home/ubuntu/app/app.jar.new /home/ubuntu/app/app.jar
+            sudo systemctl restart foodmemory
+          EOF
+
+      # 재시작했다고 뜬 것은 아니다. 실제로 응답하는지 확인해야
+      # 배포가 성공했는지 알 수 있다.
+      - name: 살아났는지 확인
+        run: |
+          for i in $(seq 1 24); do
+            code=$(curl -s -o /dev/null -m 5 -w "%{http_code}" \
+                   http://${{ secrets.EC2_HOST }}:8080/login || echo 000)
+            if [ "$code" = "200" ]; then
+              echo "배포 완료 (HTTP $code)"
+              exit 0
+            fi
+            echo "기다리는 중... ($i/24, 지금 $code)"
+            sleep 5
+          done
+          echo "앱이 응답하지 않는다. 서버 로그를 봐야 한다."
+          exit 1
