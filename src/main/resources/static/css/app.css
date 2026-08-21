@@ -28,6 +28,7 @@
     --ink: #1b1b1b;         /* 펜 색 */
     --ink-soft: #6b6b6b;    /* 흐린 글씨 */
     --line: #1b1b1b;        /* 테두리 */
+    --line-soft: #a8a8a8;   /* 연한 테두리. 검은 선이 너무 셀 때 쓴다 */
     --paper: #ffffff;
     --hover: #f6f6f6;
 }
@@ -569,14 +570,29 @@ input[type=checkbox] { width: auto; }
     width: 84px;
     height: 84px;
     border-radius: 50%;
-    border: 3px solid var(--line);
     background: var(--paper);
     cursor: pointer;
-    /* 종이 위에 올려둔 것처럼 옅은 그림자 */
-    box-shadow: 0 3px 10px rgba(0, 0, 0, .18);
     display: flex;
     align-items: center;
     justify-content: center;
+
+    /* 바깥 선. 검정(--line)은 이 크기의 원에서 너무 세게 보여 회색으로 낮췄다 */
+    border: 2px solid var(--line-soft);
+
+    /*
+     * 안쪽에 선을 한 겹 더 둘러 이중 테두리를 만든다.
+     * border 는 한 겹만 그릴 수 있어서 inset 그림자를 겹쳐 쓴다.
+     *
+     * inset 은 먼저 쓴 것이 위에 덮이므로 바깥에서 안쪽 순으로 적는다.
+     *   3px 종이색  → 두 선 사이의 빈 틈
+     *   5px 회색    → 그 안쪽의 두 번째 선(3~5px 구간만 남는다)
+     * 실제 카메라 셔터 버튼이 이 구조라 눌러야 할 곳으로 읽힌다.
+     */
+    box-shadow:
+        inset 0 0 0 3px var(--paper),
+        inset 0 0 0 5px var(--line-soft),
+        /* 종이 위에 올려둔 것처럼 옅은 그림자. 선이 연해진 만큼 같이 낮췄다 */
+        0 3px 10px rgba(0, 0, 0, .14);
 }
 
 /* 원 안의 글자. 두 줄이라 줄간격을 좁힌다 */
@@ -588,7 +604,15 @@ input[type=checkbox] { width: auto; }
     user-select: none;   /* 길게 눌러도 글자가 선택되지 않게 */
 }
 
-.shot:active { background: var(--hover); }
+/* 누르는 동안 두 선이 함께 진해진다. 배경만 바뀌면 눌린 느낌이 약하다 */
+.shot:active {
+    background: var(--hover);
+    border-color: var(--ink-soft);
+    box-shadow:
+        inset 0 0 0 3px var(--hover),
+        inset 0 0 0 5px var(--ink-soft),
+        0 2px 6px rgba(0, 0, 0, .14);
+}
 
 /* 전송 중에는 눌리지 않게 하고 흐리게 둔다.
    사진이 큰 경우 몇 초 걸리는데, 그동안 반응이 없으면 또 누른다 */
