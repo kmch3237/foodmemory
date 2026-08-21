@@ -263,15 +263,25 @@ public class PostController {
                          @RequestParam(required = false) Long spaceId,
                          @Login LoginMember loginMember,
                          RedirectAttributes redirectAttributes) {
+        Long postId;
         try {
-            postService.upload(photos, content, eatenDate, loginMember.memberId(), spaceId);
+            postId = postService.upload(photos, content, eatenDate, loginMember.memberId(), spaceId);
         } catch (IllegalArgumentException | IllegalStateException e) {
             redirectAttributes.addFlashAttribute("error", e.getMessage());
             return "redirect:/posts/new";
         }
 
-        // 공간에 올렸으면 그 공간으로, 개인 기록이면 내 갤러리로 돌아간다.
-        return spaceId == null ? "redirect:/" : "redirect:/spaces/" + spaceId;
+        /*
+         * 갤러리가 아니라 방금 만든 기록으로 보낸다.
+         *
+         * 촬영 버튼으로 올리면 코멘트도 장소도 없는 기록이 만들어진다.
+         * 갤러리로 돌려보내면 그것들을 붙이려고 다시 찾아 들어가야 한다.
+         * 상세 화면에는 '기록 수정' 과 '장소 연결하기' 가 이미 있으므로,
+         * 거기로 보내면 이어서 채워 넣을 수 있다.
+         *
+         * 올린 것이 실제로 어떻게 저장됐는지 바로 보여주는 효과도 있다.
+         */
+        return "redirect:/posts/" + postId;
     }
 
     /**

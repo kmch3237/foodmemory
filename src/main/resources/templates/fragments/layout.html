@@ -94,6 +94,32 @@
     </div>
 
     <div class="rule"></div>
+
+    <!--
+      ── 촬영 버튼 ──────────────────────────────────────────
+      화면 아래 가운데에 떠 있는 동그란 버튼.
+
+      누르면 폰의 기본 카메라가 열리고, 찍으면 곧바로 올라간다.
+      코멘트나 장소를 고르는 단계를 건너뛰는 것이 핵심이다.
+      먹기 직전에 한 손으로 찍는 상황을 위한 길이라,
+      중간에 화면이 하나라도 끼면 그 자리에서 안 쓰게 된다.
+
+      코멘트와 장소는 올린 뒤에 붙일 수 있다.
+      그래서 올리자마자 그 기록의 상세 화면으로 보낸다.
+
+      input 을 숨기고 label 을 버튼처럼 쓰는 것은 업로드 폼과 같은 이유다.
+      파일 선택칸은 브라우저마다 생김새가 달라 꾸밀 수 없다.
+    -->
+    <form th:if="${loginMember != null}"
+          class="shot-form" th:action="@{/posts}"
+          method="post" enctype="multipart/form-data">
+        <label class="shot" title="사진 찍어 올리기">
+            <!-- environment = 뒷카메라. 사진을 고르는 순간 알아서 전송된다 -->
+            <input type="file" name="photos" accept="image/*" capture="environment" hidden
+                   onchange="this.closest('form').classList.add('sending'); this.form.submit();">
+            <span class="shot-inner"></span>
+        </label>
+    </form>
 </th:block>
 
 </body>

@@ -548,3 +548,50 @@ input[type=checkbox] { width: auto; }
     text-align: center;
     cursor: pointer;
 }
+
+/* ── 촬영 버튼 ────────────────────────────────────────────────
+   화면 아래 가운데에 고정으로 떠 있다.
+
+   position: fixed 는 스크롤과 무관하게 화면 기준으로 붙어 있게 한다.
+   absolute 로 하면 문서 기준이라 스크롤하면 같이 올라가 버린다.
+   ------------------------------------------------------------ */
+.shot-form {
+    position: fixed;
+    left: 50%;
+    transform: translateX(-50%);
+    /* 아이폰 홈 인디케이터에 가리지 않도록 그만큼 띄운다 */
+    bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+    z-index: 50;
+}
+
+.shot {
+    display: block;
+    width: 66px;
+    height: 66px;
+    border-radius: 50%;
+    border: 3px solid var(--line);
+    background: var(--paper);
+    cursor: pointer;
+    /* 종이 위에 올려둔 것처럼 옅은 그림자 */
+    box-shadow: 0 3px 10px rgba(0, 0, 0, .18);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 안쪽 원 — 카메라 셔터처럼 보이게 */
+.shot-inner {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    border: 2px solid var(--line);
+}
+
+.shot:active { background: var(--hover); }
+
+/* 전송 중에는 눌리지 않게 하고 흐리게 둔다.
+   사진이 큰 경우 몇 초 걸리는데, 그동안 반응이 없으면 또 누른다 */
+.shot-form.sending .shot { opacity: .45; pointer-events: none; }
+
+/* 버튼이 화면 아래를 가리므로 본문 끝에 그만큼 자리를 비워둔다 */
+.sheet { padding-bottom: 110px; }
