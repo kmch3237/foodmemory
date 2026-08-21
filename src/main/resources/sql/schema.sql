@@ -15,7 +15,8 @@
 -- IF EXISTS 를 붙이면 테이블이 없어도 에러가 나지 않는다.
 -- 개발 중에 이 스크립트를 반복 실행하기 위한 장치다.
 
-DROP TABLE IF EXISTS photo;            -- post 를 참조하므로 가장 먼저
+DROP TABLE IF EXISTS comment;          -- post, member 를 참조하므로 가장 먼저
+DROP TABLE IF EXISTS photo;            -- post 를 참조
 DROP TABLE IF EXISTS post;             -- member, place, space 를 참조
 DROP TABLE IF EXISTS space_member;     -- space, member 를 참조
 DROP TABLE IF EXISTS space;            -- member 를 참조
