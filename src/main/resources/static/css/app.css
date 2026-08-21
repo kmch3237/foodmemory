@@ -323,8 +323,13 @@ input[type=checkbox] { width: auto; }
        흐름에서 빠져 있어 자리를 차지하지 않는다. 그래서 화면이 좁아지면
        로고를 밀어내지 못하고 로고 박스 위에 그대로 겹쳐 버린다.
        static 으로 되돌려 흐름 안에 넣으면 로고 아래로 내려간다. */
-    .head { flex-direction: column; gap: 10px; }
-    .who  { position: static; font-size: 15px; }
+    .head { flex-direction: column; gap: 10px; align-items: center; }
+
+    /* 세로로 쌓은 상태에서 이 줄만 오른쪽으로 민다.
+       align-items 는 부모가 자식 전체에 주는 정렬이고,
+       align-self 는 자식 하나가 그걸 무시하고 자기만 다르게 두는 것이다.
+       로고는 가운데, 사용자 줄만 오른쪽이 된다. */
+    .who  { position: static; align-self: flex-end; font-size: 15px; }
 }
 
 /* ── 기록 상세: 왼쪽 사진, 오른쪽 댓글 ─────────────────────────
