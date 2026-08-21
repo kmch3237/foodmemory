@@ -16,6 +16,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 시크릿이 비어 있으면 여기서 분명한 말로 멈춘다.
+      #
+      # 없으면 빈 값이 그대로 명령어에 들어가서 한참 뒤 엉뚱한 곳에서 터진다.
+      # 실제로 ssh-keyscan 이 "사용법" 을 뱉으며 죽었는데,
+      # 진짜 원인인 '시크릿 없음' 은 로그 어디에도 나오지 않았다.
+      # 잘못된 것은 그것을 아는 자리에서 멈추는 편이 원인을 찾기 쉽다.
+      - name: 시크릿 확인
+        run: |
+          [ -n "${{ secrets.EC2_HOST }}" ] || { echo "EC2_HOST 시크릿이 없다"; exit 1; }
+          [ -n "${{ secrets.EC2_SSH_KEY }}" ] || { echo "EC2_SSH_KEY 시크릿이 없다"; exit 1; }
+          echo "시크릿 확인 완료"
+
       - name: 코드 가져오기
         uses: actions/checkout@v4
 
