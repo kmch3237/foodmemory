@@ -263,25 +263,33 @@ public class PostController {
                          @RequestParam(required = false) Long spaceId,
                          @Login LoginMember loginMember,
                          RedirectAttributes redirectAttributes) {
-        Long postId;
         try {
-            postId = postService.upload(photos, content, eatenDate, loginMember.memberId(), spaceId);
+            postService.upload(photos, content, eatenDate, loginMember.memberId(), spaceId);
         } catch (IllegalArgumentException | IllegalStateException e) {
             redirectAttributes.addFlashAttribute("error", e.getMessage());
             return "redirect:/posts/new";
         }
 
         /*
-         * 갤러리가 아니라 방금 만든 기록으로 보낸다.
+         * 방금 만든 기록이 아니라, 그 기록이 놓인 갤러리로 보낸다.
          *
-         * 촬영 버튼으로 올리면 코멘트도 장소도 없는 기록이 만들어진다.
-         * 갤러리로 돌려보내면 그것들을 붙이려고 다시 찾아 들어가야 한다.
-         * 상세 화면에는 '기록 수정' 과 '장소 연결하기' 가 이미 있으므로,
-         * 거기로 보내면 이어서 채워 넣을 수 있다.
+         *   방에 올렸으면  → 그 방의 갤러리
+         *   개인 기록이면  → 내 갤러리(메인)
          *
-         * 올린 것이 실제로 어떻게 저장됐는지 바로 보여주는 효과도 있다.
+         * 한동안은 상세 화면으로 보냈다. 코멘트와 장소를 이어서 붙이라는 뜻이었는데,
+         * 올리는 사람이 늘 그것을 바로 채우고 싶어하는 것은 아니었다.
+         * 여러 장을 연달아 올릴 때는 매번 상세로 끌려 들어가 흐름이 끊긴다.
+         *
+         * 올린 것이 목록 맨 앞에 나타나므로 잘 올라갔다는 확인은 갤러리에서도 된다.
+         * 채워 넣고 싶으면 그 자리에서 눌러 들어가면 되고, 그 길은 한 번만 더 누르면 된다.
+         *
+         * spaceId 로 판단해도 되는 이유:
+         *   참여하지 않은 방이 넘어오면 서비스가 예외를 던져 위에서 이미 걸러진다.
+         *   여기까지 왔다는 것은 그 방에 실제로 저장됐다는 뜻이다.
          */
-        return "redirect:/posts/" + postId;
+        return spaceId == null
+                ? "redirect:/"
+                : "redirect:/spaces/" + spaceId;
     }
 
     /**
