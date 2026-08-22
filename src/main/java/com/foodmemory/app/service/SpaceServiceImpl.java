@@ -35,9 +35,14 @@ public class SpaceServiceImpl implements SpaceService {
     /**
      * 코드 길이.
      *
-     * 31글자 중 8자리면 31^8, 약 850조 가지다.
+     * 31글자 중 8자리면 31^8, 약 8,529억 가지다.
      * 짧으면 무작위로 넣어보다 남의 공간에 들어갈 수 있다. 코드 자체가 열쇠이므로
      * '맞히기 어려운 정도' 가 곧 보안 수준이다.
+     *
+     * 다만 이 크기만으로는 부족하다. 방이 늘어날수록 맞혀야 할 표적도 늘어,
+     * 방 1,000개에 초당 100번을 두드리면 평균 99일이면 하나가 뚫린다.
+     * 그래서 JoinAttemptLimiter 로 시도 속도 자체를 늦춘다.
+     * 길이를 늘리는 것은 답이 아니다. 코드는 사람이 옮겨 적는 물건이다.
      */
     private static final int CODE_LENGTH = 8;
 
@@ -51,6 +56,7 @@ public class SpaceServiceImpl implements SpaceService {
     private final SpaceRepository spaceRepository;
     private final SpaceMemberRepository spaceMemberRepository;
     private final MemberRepository memberRepository;
+    private final JoinAttemptLimiter joinAttemptLimiter;
 
     @Override
     @Transactional
@@ -78,8 +84,17 @@ public class SpaceServiceImpl implements SpaceService {
     @Override
     @Transactional
     public Long joinByCode(String inviteCode, Long memberId) {
+        /*
+         * 코드를 확인하기 전에 막힌 사람인지부터 본다.
+         *
+         * 순서가 반대면 막아둔 사람도 계속 코드를 조회하게 되어 막은 의미가 없다.
+         * 차단은 '조회를 못 하게 하는 것' 이지 '결과를 감추는 것' 이 아니다.
+         */
+        joinAttemptLimiter.requireNotBlocked(memberId);
+
         String code = inviteCode == null ? "" : inviteCode.trim().toUpperCase();
         if (code.isEmpty()) {
+            // 빈 입력은 실패로 세지 않는다. 맞히려는 시도가 아니라 그냥 잘못 누른 것이다
             throw new IllegalArgumentException("초대 코드를 입력해주세요.");
         }
 
@@ -88,8 +103,14 @@ public class SpaceServiceImpl implements SpaceService {
          * 어떤 코드가 존재하는지 알아낼 수 있는 단서를 주지 않기 위해서다.
          * 로그인 실패 메시지를 하나로 통일한 것과 같은 이유다.
          */
-        Space space = spaceRepository.findByInviteCode(code)
-                .orElseThrow(() -> new IllegalArgumentException("올바르지 않은 초대 코드입니다."));
+        Space space = spaceRepository.findByInviteCode(code).orElseThrow(() -> {
+            joinAttemptLimiter.recordFailure(memberId);
+            return new IllegalArgumentException("올바르지 않은 초대 코드입니다.");
+        });
+
+        // 맞혔으니 세던 것을 지운다.
+        // 안 지우면 오타 네 번 끝에 성공한 사람이 다음번 한 번의 오타로 막힌다.
+        joinAttemptLimiter.recordSuccess(memberId);
 
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new NotFoundException("존재하지 않는 회원입니다."));

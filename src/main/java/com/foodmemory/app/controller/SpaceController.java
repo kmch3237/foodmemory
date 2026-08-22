@@ -2,6 +2,7 @@ package com.foodmemory.app.controller;
 
 import com.foodmemory.app.auth.Login;
 import com.foodmemory.app.auth.LoginMember;
+import com.foodmemory.app.common.TooManyAttemptsException;
 import com.foodmemory.app.dto.GalleryPage;
 import com.foodmemory.app.service.PostService;
 import com.foodmemory.app.service.SpaceService;
@@ -64,16 +65,44 @@ public class SpaceController {
      */
     @GetMapping("/spaces/join")
     public String join(@RequestParam String code,
+                       @RequestParam(required = false) String from,
                        @Login LoginMember loginMember,
                        RedirectAttributes redirectAttributes) {
         try {
             Long spaceId = spaceService.joinByCode(code, loginMember.memberId());
-            redirectAttributes.addFlashAttribute("message", "공간에 참여했습니다.");
+            redirectAttributes.addFlashAttribute("message", "방에 참여했습니다.");
             return "redirect:/spaces/" + spaceId;
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException | TooManyAttemptsException e) {
+            /*
+             * 오류 화면으로 보내지 않고 왔던 자리로 돌려보낸다.
+             *
+             * 코드를 잘못 옮겨 적는 것은 흔한 일이라 사고가 아니다.
+             * 400 화면이 뜨면 뒤로 가기를 눌러야 다시 시도할 수 있는데,
+             * 그러느니 원래 화면에 안내만 띄우고 그 자리에서 다시 넣게 한다.
+             *
+             * 두 예외를 함께 잡는 이유는 사용자가 할 일이 같기 때문이다.
+             * '다시 입력한다' 로 끝나고, 다른 점은 문구뿐이다.
+             */
             redirectAttributes.addFlashAttribute("error", e.getMessage());
-            return "redirect:/spaces";
+            return "redirect:" + safeReturnPath(from);
         }
+    }
+
+    /**
+     * 실패했을 때 돌아갈 곳을 정한다.
+     *
+     * 화면이 보낸 값을 그대로 쓰지 않는 이유:
+     *   from=https://남의사이트 처럼 넣으면 우리 서비스가 사용자를 그리로 보내준다.
+     *   피싱 사이트를 우리 주소로 감싸서 퍼뜨릴 수 있어 열린 리다이렉트라 부른다.
+     *   //남의사이트 도 브라우저는 바깥 주소로 읽으므로 함께 막는다.
+     *   AuthController 의 로그인 후 복귀 처리와 같은 규칙이다.
+     */
+    private String safeReturnPath(String from) {
+        if (from == null || from.isBlank()
+                || !from.startsWith("/") || from.startsWith("//")) {
+            return "/spaces";
+        }
+        return from;
     }
 
     /**

@@ -649,3 +649,50 @@ input[type=checkbox] { width: auto; }
     /* 버튼이 없으니 아래 여백을 원래 값으로 되돌린다. 안 그러면 빈 공간만 남는다 */
     .sheet { padding-bottom: 60px; }
 }
+
+/* ── 작은 창(dialog) ────────────────────────────────────────
+   초대 코드 입력처럼 화면을 옮기지 않고 한 가지만 받을 때 쓴다.
+   ------------------------------------------------------------ */
+dialog {
+    width: min(420px, calc(100vw - 48px));
+    padding: 22px 24px;
+    border: 2px solid var(--line);
+    background: var(--paper);
+    color: var(--ink);
+}
+
+/* 열렸을 때만 보이게 한다. 이게 없으면 닫힌 창의 내용이 화면에 그대로 남는다 */
+dialog:not([open]) { display: none; }
+
+/*
+ * ::backdrop 은 창 뒤에 브라우저가 깔아주는 층이다.
+ * 뒤를 덮어 지금 답해야 할 것이 무엇인지 분명해진다.
+ */
+dialog::backdrop { background: rgba(0, 0, 0, .38); }
+
+dialog h2 { font-size: 19px; margin: 0 0 6px; }
+dialog .hint { margin: 0 0 14px; }
+
+/* 닫기(✕)를 오른쪽 위로 보낸다 */
+.dialog-x { display: flex; justify-content: flex-end; margin: -8px -8px 0 0; }
+
+/*
+ * 생김새 없는 버튼.
+ *
+ * 링크(<a>)로 만들지 않은 이유:
+ *   링크는 '어딘가로 간다' 는 뜻인데 이건 창을 여는 동작이다.
+ *   주소가 없는 링크는 키보드로 쓰는 사람에게 눌리지도 않는다.
+ *   동작에는 button 을 쓰고 생김새만 링크처럼 맞춘다.
+ */
+.btn-plain {
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+}
+.dialog-x .btn-plain { font-size: 20px; color: var(--ink-soft); padding: 4px 8px; }
+
+/* 링크처럼 보여야 하는 버튼은 밑줄까지 맞춘다. 옆의 진짜 링크와 달라 보이면 안 된다 */
+.btn-plain.link { text-decoration: underline; }
