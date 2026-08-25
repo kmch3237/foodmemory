@@ -100,7 +100,7 @@
   layout 의 머리말에 함께 두면 글 쓰는 화면에도 떠서,
   작성 중에 눌렀을 때 하던 일이 날아간다.
 -->
-<th:block th:replace="~{fragments/layout :: shotButton(${loginMember})}"></th:block>
+<th:block th:replace="~{fragments/layout :: shotButton(${loginMember}, null)}"></th:block>
 
 <script th:replace="~{post/fragments/infinite-scroll :: script(null)}"></script>
 

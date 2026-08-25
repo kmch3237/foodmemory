@@ -120,11 +120,34 @@
   input 을 숨기고 label 을 버튼처럼 쓰는 것은 업로드 폼과 같은 이유다.
   파일 선택칸은 브라우저마다 생김새가 달라 꾸밀 수 없다.
 -->
-<th:block th:fragment="shotButton(loginMember)">
+<th:block th:fragment="shotButton(loginMember, spaceId)">
     <form th:if="${loginMember != null}"
           class="shot-form" th:action="@{/posts}"
           method="post" enctype="multipart/form-data">
-        <label class="shot" title="사진 찍어 올리기">
+
+        <!--
+          찍은 사진이 어디로 갈지는 '어느 화면에서 눌렀는가' 로 정한다.
+
+            메인에서 누름  → spaceId 없음 → 내 갤러리에 개인 기록으로
+            방에서 누름    → spaceId 있음 → 그 방에
+
+          찍고 나서 방을 고르게 하지 않는 이유:
+            촬영 버튼은 먹기 직전에 한 손으로 쓰는 길이다.
+            중간에 고르는 화면이 하나 끼면 그 자리에서 안 쓰게 된다.
+            지금 보고 있는 화면이 곧 사용자의 의도라고 보는 편이 자연스럽다.
+
+          값이 있을 때만 칸을 만든다. 빈 문자열로 두면 그것대로 서버에 전달돼
+          "빈 값을 방 번호로 해석해야 하나" 하는 판단이 서버에 생긴다.
+        -->
+        <input type="hidden" name="spaceId" th:if="${spaceId != null}" th:value="${spaceId}">
+
+        <!--
+          글자는 두 화면 모두 '촬영' 으로 같다.
+          원이 작아 방 이름이 안 들어가고, 지금 보고 있는 화면이
+          어디로 갈지를 이미 말해주고 있다. 굳이 원 안에서 또 설명하지 않는다.
+        -->
+        <label class="shot" th:title="${spaceId != null}
+                   ? '이 방에 사진 찍어 올리기' : '내 갤러리에 사진 찍어 올리기'">
             <!-- environment = 뒷카메라. 사진을 고르는 순간 알아서 전송된다 -->
             <input type="file" name="photos" accept="image/*" capture="environment" hidden
                    onchange="this.closest('form').classList.add('sending'); this.form.submit();">

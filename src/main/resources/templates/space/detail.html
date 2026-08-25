@@ -91,5 +91,11 @@
 
 <script th:replace="~{post/fragments/infinite-scroll :: script(${spaceId})}"></script>
 
+<!--
+  이 방에서 누르는 촬영 버튼. spaceId 를 함께 보내 그 방에 올라가게 한다.
+  메인의 것과 같은 조각을 쓰되 넘기는 값만 다르다.
+-->
+<th:block th:replace="~{fragments/layout :: shotButton(${loginMember}, ${spaceId})}"></th:block>
+
 </body>
 </html>
