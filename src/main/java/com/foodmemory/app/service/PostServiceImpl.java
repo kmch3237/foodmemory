@@ -7,6 +7,7 @@ import com.foodmemory.app.common.ForbiddenException;
 import com.foodmemory.app.common.NotFoundException;
 import com.foodmemory.app.common.KakaoLocalClient;
 import com.foodmemory.app.dto.GalleryPage;
+import com.foodmemory.app.dto.GallerySort;
 import com.foodmemory.app.dto.PlaceCandidate;
 import com.foodmemory.app.dto.PostDetailResponse;
 import com.foodmemory.app.dto.PostEditForm;
@@ -64,16 +65,17 @@ public class PostServiceImpl implements PostService {
      */
     @Override
     @Transactional(readOnly = true)
-    public GalleryPage getMyGallery(Long memberId, int page, int size) {
-        // 정렬은 이미 쿼리의 order by 에 적혀 있으므로 PageRequest 에는 정렬을 주지 않는다.
-        // 양쪽에 정렬을 걸면 order by 가 두 번 붙어 어긋난다.
+    public GalleryPage getMyGallery(Long memberId, int page, int size, GallerySort sort) {
+        // 정렬은 쿼리가 아니라 여기서 정한다. 보는 사람이 고를 수 있어야 하기 때문이다.
+        // 쿼리에는 order by 가 없다. 양쪽에 걸면 두 번 붙어 어긋난다.
         return toGalleryPage(
-                postRepository.findMyPosts(memberId, PageRequest.of(page, size)), page);
+                postRepository.findMyPosts(memberId, PageRequest.of(page, size, sort.sort())), page);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public GalleryPage getSpaceGallery(Long spaceId, Long memberId, int page, int size) {
+    public GalleryPage getSpaceGallery(Long spaceId, Long memberId, int page, int size,
+                                       GallerySort sort) {
         /*
          * 쿼리를 돌리기 전에 권한을 먼저 본다.
          *
@@ -85,7 +87,7 @@ public class PostServiceImpl implements PostService {
         }
 
         return toGalleryPage(
-                postRepository.findSpacePosts(spaceId, PageRequest.of(page, size)), page);
+                postRepository.findSpacePosts(spaceId, PageRequest.of(page, size, sort.sort())), page);
     }
 
     /**

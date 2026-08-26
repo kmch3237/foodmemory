@@ -141,6 +141,21 @@ body {
     flex: none;
 }
 
+/*
+ * 제목 줄에 들어가는 작은 고르는 칸(select).
+ *
+ * width: auto 로 되돌리는 이유:
+ *   위쪽에 input·select·textarea 를 한꺼번에 width: 100% 로 두는 규칙이 있다.
+ *   입력 칸은 폼 안에서 한 줄을 다 쓰는 것이 맞지만, 이건 제목 옆에 붙는 것이라
+ *   그대로 두면 줄을 통째로 차지해 제목을 밀어낸다.
+ */
+.sort-select {
+    width: auto;
+    flex: none;
+    font-size: 14px;
+    padding: 4px 10px;
+}
+
 /* ── 방 카드 ──────────────────────────────────────────────── */
 .rooms {
     display: grid;

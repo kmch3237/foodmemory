@@ -23,7 +23,36 @@
     <!-- 어디서 왔는지에 따라 돌아갈 곳이 다르다. 방에서 왔으면 그 방으로 -->
     <p class="back"><a th:href="@{${backUrl}}" th:text="'← ' + ${backText}">← 뒤로</a></p>
 
-    <p class="section" th:text="${title}">제목</p>
+    <!--
+      제목 줄 오른쪽 끝에 순서를 고르는 칸을 둔다.
+
+      form 없이 onchange 로 주소를 바꾸는 이유:
+        고른 순서가 주소에 남아야 한다(?sort=eaten). 그래야 새로고침해도 유지되고,
+        링크를 공유하면 상대도 같은 순서로 본다. 뒤로 가기도 제대로 돈다.
+        화면 안에서 자바스크립트로 다시 그리면 이 셋이 모두 깨진다.
+
+      option 의 value 에 주소를 통째로 담는다.
+        고르는 즉시 그 주소로 가면 되므로 자바스크립트가 주소를 조립할 필요가 없다.
+
+      내 갤러리일 때 주소를 따로 만드는 이유:
+        spaceId 를 그냥 넘기면 값이 없어도 ?spaceId=&sort=... 처럼 빈 칸이 남는다.
+        스프링이 빈 문자열을 null 로 바꿔줘서 동작에는 문제가 없지만,
+        이 주소는 공유하라고 만든 것이다. 남에게 보낼 주소에 빈 칸이 붙어 있으면
+        무엇을 빠뜨린 것처럼 보인다.
+    -->
+    <p class="section section-row">
+        <span th:text="${title}">제목</span>
+
+        <select class="sort-select" onchange="location.href = this.value"
+                aria-label="사진 정렬 순서">
+            <option th:each="option : ${sortOptions}"
+                    th:value="${spaceId == null}
+                              ? @{/posts/all(sort=${option.code})}
+                              : @{/posts/all(spaceId=${spaceId}, sort=${option.code})}"
+                    th:selected="${option.code == sort}"
+                    th:text="${option.label}">올린 순</option>
+        </select>
+    </p>
 
     <p class="empty" th:if="${#lists.isEmpty(posts)}">
         아직 기록이 없습니다.
@@ -51,7 +80,7 @@
   spaceId 를 그대로 넘긴다.
   null 이면 내 갤러리를, 값이 있으면 그 방의 사진을 이어붙인다.
 -->
-<script th:replace="~{post/fragments/infinite-scroll :: script(${spaceId})}"></script>
+<script th:replace="~{post/fragments/infinite-scroll :: script(${spaceId}, ${sort})}"></script>
 
 </body>
 </html>

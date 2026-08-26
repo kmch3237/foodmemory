@@ -1,6 +1,7 @@
 package com.foodmemory.app.service;
 
 import com.foodmemory.app.dto.GalleryPage;
+import com.foodmemory.app.dto.GallerySort;
 import com.foodmemory.app.dto.PostDetailResponse;
 import com.foodmemory.app.dto.PostEditForm;
 import com.foodmemory.app.dto.PlaceSearchResult;
@@ -40,14 +41,14 @@ public interface PostService {
      *   요약 화면은 4장, 전체보기는 12장으로 서로 다르다. 하는 일은 똑같고
      *   몇 개를 가져오느냐만 다르므로, 그 하나만 부르는 쪽이 정한다.
      */
-    GalleryPage getMyGallery(Long memberId, int page, int size);
+    GalleryPage getMyGallery(Long memberId, int page, int size, GallerySort sort);
 
     /**
      * 공유 공간의 기록을 가져온다. 참여자가 아니면 거부한다.
      *
      * 작성자를 가리지 않는다. 공간은 여러 사람의 기록이 함께 쌓이는 곳이다.
      */
-    GalleryPage getSpaceGallery(Long spaceId, Long memberId, int page, int size);
+    GalleryPage getSpaceGallery(Long spaceId, Long memberId, int page, int size, GallerySort sort);
 
     /**
      * 게시물 한 건을 사진 전체와 함께 가져온다.

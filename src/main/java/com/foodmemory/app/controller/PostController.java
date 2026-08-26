@@ -3,6 +3,7 @@ package com.foodmemory.app.controller;
 import com.foodmemory.app.auth.Login;
 import com.foodmemory.app.auth.LoginMember;
 import com.foodmemory.app.dto.GalleryPage;
+import com.foodmemory.app.dto.GallerySort;
 import com.foodmemory.app.service.CommentService;
 import com.foodmemory.app.service.PostService;
 import com.foodmemory.app.service.SpaceService;
@@ -58,8 +59,9 @@ public class PostController {
          * 방 목록과 촬영 버튼이 함께 있는 자리라, 사진이 길게 이어지면 그것들이 밀린다.
          * 여기서는 최근 몇 장만 보여주고, 다 보려면 전체보기로 간다.
          */
+        // 요약은 늘 올린 순이다. 방금 올린 것이 맨 앞에 보여야 잘 올라갔는지 알 수 있다.
         GalleryPage page = postService.getMyGallery(
-                loginMember.memberId(), 0, PostService.PREVIEW_SIZE);
+                loginMember.memberId(), 0, PostService.PREVIEW_SIZE, GallerySort.UPLOADED);
 
         model.addAttribute("posts", page.posts());
         model.addAttribute("uploadUrlPrefix", uploadUrlPrefix);
@@ -84,16 +86,25 @@ public class PostController {
     @GetMapping("/posts/more")
     public String more(@RequestParam(defaultValue = "0") int page,
                        @RequestParam(required = false) Long spaceId,
+                       @RequestParam(required = false) String sort,
                        @Login LoginMember loginMember,
                        Model model,
                        HttpServletResponse response) {
 
+        /*
+         * 보고 있던 순서를 그대로 이어야 한다.
+         * 이 값을 빼먹으면 첫 화면은 먹은 날짜 순인데 스크롤로 붙는 것은 올린 순이 되어,
+         * 이미 본 사진이 아래에 또 나오거나 중간이 통째로 빠진다.
+         */
+        GallerySort gallerySort = GallerySort.from(sort);
+
         // spaceId 가 있으면 공간 갤러리를, 없으면 내 갤러리를 이어붙인다.
         // 어느 쪽이든 서비스가 권한을 확인하므로 여기서 또 검사하지 않는다.
         GalleryPage galleryPage = (spaceId == null)
-                ? postService.getMyGallery(loginMember.memberId(), page, PostService.FULL_PAGE_SIZE)
+                ? postService.getMyGallery(loginMember.memberId(), page,
+                                           PostService.FULL_PAGE_SIZE, gallerySort)
                 : postService.getSpaceGallery(spaceId, loginMember.memberId(), page,
-                                              PostService.FULL_PAGE_SIZE);
+                                              PostService.FULL_PAGE_SIZE, gallerySort);
 
         model.addAttribute("posts", galleryPage.posts());
         model.addAttribute("uploadUrlPrefix", uploadUrlPrefix);
@@ -117,14 +128,19 @@ public class PostController {
      */
     @GetMapping("/posts/all")
     public String all(@RequestParam(required = false) Long spaceId,
+                      @RequestParam(required = false) String sort,
                       @Login LoginMember loginMember,
                       Model model) {
 
+        // 모르는 값이 와도 기본값(올린 순)으로 돌아간다. 주소는 사용자가 고칠 수 있다.
+        GallerySort gallerySort = GallerySort.from(sort);
+
         // 어느 쪽이든 서비스가 권한을 확인한다. 여기서 또 검사하지 않는다.
         GalleryPage page = (spaceId == null)
-                ? postService.getMyGallery(loginMember.memberId(), 0, PostService.FULL_PAGE_SIZE)
+                ? postService.getMyGallery(loginMember.memberId(), 0,
+                                           PostService.FULL_PAGE_SIZE, gallerySort)
                 : postService.getSpaceGallery(spaceId, loginMember.memberId(), 0,
-                                              PostService.FULL_PAGE_SIZE);
+                                              PostService.FULL_PAGE_SIZE, gallerySort);
 
         model.addAttribute("loginMember", loginMember);
         model.addAttribute("posts", page.posts());
@@ -132,6 +148,10 @@ public class PostController {
         model.addAttribute("nextPage", page.nextPage());
         model.addAttribute("spaceId", spaceId);
         model.addAttribute("uploadUrlPrefix", uploadUrlPrefix);
+
+        // 지금 어떤 순서로 보고 있는지. 고르는 칸이 이 값으로 어느 쪽을 켤지 정한다.
+        model.addAttribute("sort", gallerySort.code());
+        model.addAttribute("sortOptions", GallerySort.values());
 
         /*
          * 제목과 돌아갈 곳은 어디서 왔는지에 따라 다르다.

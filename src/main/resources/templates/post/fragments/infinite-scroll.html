@@ -9,8 +9,9 @@
   다른 것은 어느 목록을 이어붙이느냐뿐이고, 그건 spaceId 하나로 갈린다.
 
   spaceId 가 null 이면 내 갤러리, 값이 있으면 그 방의 갤러리를 가져온다.
+  sort 는 지금 보고 있는 순서다. 첫 화면과 같은 순서로 이어야 목록이 어긋나지 않는다.
 -->
-<script th:fragment="script(spaceId)" th:inline="javascript">
+<script th:fragment="script(spaceId, sort)" th:inline="javascript">
     (function () {
         const sentinel = document.getElementById('sentinel');
         if (!sentinel) {
@@ -21,7 +22,16 @@
         const loading = document.getElementById('loading');
 
         const spaceId = /*[[${spaceId}]]*/ null;
-        const query = spaceId == null ? '' : '&spaceId=' + spaceId;
+
+        /*
+          보고 있던 순서를 그대로 이어야 한다.
+          이 값을 빼먹으면 첫 화면은 먹은 날짜 순인데 이어붙는 것은 올린 순이 되어,
+          이미 본 사진이 아래에 또 나오거나 중간이 통째로 빠진다.
+        */
+        const sort = /*[[${sort}]]*/ null;
+
+        const query = (spaceId == null ? '' : '&spaceId=' + spaceId)
+                    + (sort    == null ? '' : '&sort='    + sort);
 
         let nextPage = Number(sentinel.dataset.nextPage);
 

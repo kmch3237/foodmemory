@@ -4,6 +4,7 @@ import com.foodmemory.app.auth.Login;
 import com.foodmemory.app.auth.LoginMember;
 import com.foodmemory.app.common.TooManyAttemptsException;
 import com.foodmemory.app.dto.GalleryPage;
+import com.foodmemory.app.dto.GallerySort;
 import com.foodmemory.app.service.PostService;
 import com.foodmemory.app.service.SpaceService;
 import lombok.RequiredArgsConstructor;
@@ -119,8 +120,9 @@ public class SpaceController {
         model.addAttribute("space", spaceService.getDetail(spaceId, loginMember.memberId()));
 
         // 방 화면도 미리보기만 보여준다. 다 보려면 전체보기로 간다.
+        // 요약은 늘 올린 순이다. 방금 올린 것이 맨 앞에 보여야 잘 올라갔는지 알 수 있다.
         GalleryPage page = postService.getSpaceGallery(
-                spaceId, loginMember.memberId(), 0, PostService.PREVIEW_SIZE);
+                spaceId, loginMember.memberId(), 0, PostService.PREVIEW_SIZE, GallerySort.UPLOADED);
 
         model.addAttribute("posts", page.posts());
         model.addAttribute("spaceId", spaceId);

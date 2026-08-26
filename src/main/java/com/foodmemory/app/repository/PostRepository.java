@@ -32,17 +32,19 @@ public interface PostRepository extends JpaRepository<Post, Long> {
      *   사진처럼 여러 건 붙는 컬렉션을 fetch join 하면 행이 뻥튀기돼서
      *   Hibernate 가 전체를 메모리로 읽은 뒤 자르는 사고가 난다. 그래서 사진은 따로 조회한다.
      *
-     * 정렬에 postId 를 덧붙인 이유:
-     *   먹은 날짜가 똑같은 게시물이 여럿이면 DB 가 그 사이의 순서를 보장하지 않는다.
-     *   페이지마다 순서가 달라지면 1페이지에 나온 게시물이 2페이지에 또 나오거나
-     *   아예 빠지는 일이 생긴다. 절대 겹치지 않는 값을 뒤에 붙여 순서를 고정한다.
+     * order by 를 여기 적지 않는 이유:
+     *   보는 사람이 '올린 순' 과 '먹은 날짜 순' 중에 고를 수 있다.
+     *   쿼리에 박아두면 순서마다 똑같은 쿼리를 하나씩 더 만들어야 한다.
+     *   Pageable 에 실려 온 Sort 를 Spring Data 가 order by 로 붙여준다.
+     *   어떤 순서가 있는지는 GallerySort 한 곳에 모아두었다.
+     *
+     *   양쪽에 다 적으면 안 된다. order by 가 두 번 붙어 어긋난다.
      */
     @Query("""
             select p from Post p
             join fetch p.member
             left join fetch p.place
             where p.member.memberId = :memberId
-            order by p.eatenDate desc, p.postId desc
             """)
     Slice<Post> findMyPosts(@Param("memberId") Long memberId, Pageable pageable);
 
@@ -58,7 +60,6 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             join fetch p.member
             left join fetch p.place
             where p.space.spaceId = :spaceId
-            order by p.eatenDate desc, p.postId desc
             """)
     Slice<Post> findSpacePosts(@Param("spaceId") Long spaceId, Pageable pageable);
 
