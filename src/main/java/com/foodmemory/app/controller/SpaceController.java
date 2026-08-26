@@ -118,10 +118,13 @@ public class SpaceController {
         model.addAttribute("loginMember", loginMember);
         model.addAttribute("space", spaceService.getDetail(spaceId, loginMember.memberId()));
 
-        GalleryPage page = postService.getSpaceGallery(spaceId, loginMember.memberId(), 0);
+        // 방 화면도 미리보기만 보여준다. 다 보려면 전체보기로 간다.
+        GalleryPage page = postService.getSpaceGallery(
+                spaceId, loginMember.memberId(), 0, PostService.PREVIEW_SIZE);
+
         model.addAttribute("posts", page.posts());
-        model.addAttribute("hasNext", page.hasNext());
-        model.addAttribute("nextPage", page.nextPage());
+        // 전체보기 버튼은 더 볼 게 남았을 때만 뜬다
+        model.addAttribute("hasMore", page.hasNext());
         model.addAttribute("spaceId", spaceId);
         model.addAttribute("uploadUrlPrefix", uploadUrlPrefix);
         return "space/detail";

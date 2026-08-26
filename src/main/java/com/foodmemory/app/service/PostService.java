@@ -12,19 +12,42 @@ import java.util.List;
 public interface PostService {
 
     /**
+     * 요약 화면(내 갤러리 · 방)에 미리 보여줄 사진 수.
+     *
+     * 요약 화면은 사진을 다 보는 곳이 아니라 '무엇이 있는지' 만 알려주는 곳이다.
+     * 여기서 사진이 길게 이어지면 그 아래의 촬영 버튼과 방 목록이 화면 밖으로 밀린다.
+     * 다 보고 싶을 때는 전체보기로 간다.
+     *
+     * 4 인 이유: 요약 격자는 2열이라 2×4=4 로 딱 두 줄이 찬다.
+     */
+    int PREVIEW_SIZE = 4;
+
+    /**
+     * 전체보기에서 한 번에 가져올 수.
+     *
+     * 전체보기 격자는 3열이므로 3의 배수로 둔다.
+     * 그래야 이어붙일 때마다 줄이 꽉 차고 중간에 빈칸이 생기지 않는다.
+     */
+    int FULL_PAGE_SIZE = 12;
+
+    /**
      * 내 기록을 먹은 날짜 최신순으로 한 페이지씩 가져온다.
      *
      * 예전에는 조건 없이 전부 가져왔다. 회원이 한 명이라 드러나지 않았을 뿐,
      * 로그인하지 않은 사람에게도 모든 회원의 기록이 보이는 상태였다.
+     *
+     * size 를 밖에서 받는 이유:
+     *   요약 화면은 4장, 전체보기는 12장으로 서로 다르다. 하는 일은 똑같고
+     *   몇 개를 가져오느냐만 다르므로, 그 하나만 부르는 쪽이 정한다.
      */
-    GalleryPage getMyGallery(Long memberId, int page);
+    GalleryPage getMyGallery(Long memberId, int page, int size);
 
     /**
      * 공유 공간의 기록을 가져온다. 참여자가 아니면 거부한다.
      *
      * 작성자를 가리지 않는다. 공간은 여러 사람의 기록이 함께 쌓이는 곳이다.
      */
-    GalleryPage getSpaceGallery(Long spaceId, Long memberId, int page);
+    GalleryPage getSpaceGallery(Long spaceId, Long memberId, int page, int size);
 
     /**
      * 게시물 한 건을 사진 전체와 함께 가져온다.

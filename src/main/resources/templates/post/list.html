@@ -71,27 +71,32 @@
     </div>
 
     <!-- ── 내 갤러리 ──────────────────────────────────────── -->
-    <p class="section section-gap">
-        내 갤러리
-        <a class="link" th:href="@{/posts/new}" style="font-size:16px"> · 기록 올리기</a>
+    <!--
+      여기는 최근 몇 장만 보여준다. 이 화면에는 방 목록과 촬영 버튼도 함께 있어서,
+      사진이 끝없이 이어지면 그것들이 화면 밖으로 밀린다.
+      다 보고 싶을 때는 사진만 있는 자리(전체보기)로 간다.
+
+      전체보기 버튼은 더 볼 게 남았을 때만 뜬다.
+      네 장이 전부인 사람에게 '전체보기' 는 눌러도 같은 화면이라 속은 기분이 든다.
+    -->
+    <p class="section section-gap section-row">
+        <span>
+            내 갤러리
+            <a class="link" th:href="@{/posts/new}" style="font-size:16px"> · 기록 올리기</a>
+        </span>
+
+        <a class="btn btn-mini" th:if="${hasMore}" th:href="@{/posts/all}">전체보기</a>
     </p>
 
     <p class="empty" th:if="${#lists.isEmpty(posts)}">
         아직 기록이 없습니다. 첫 사진을 올려보세요.
     </p>
 
-    <div class="gallery" id="gallery">
-        <!-- 첫 페이지도 이어붙일 때와 같은 조각을 쓴다 -->
+    <!-- 미리보기는 2열이라 네 장이 2×2 로 딱 맞는다. 전체보기는 3열로 촘촘하다 -->
+    <div class="gallery gallery-preview">
+        <!-- 전체보기·이어붙이기와 같은 조각을 쓴다 -->
         <th:block th:replace="~{post/fragments/gallery-cards :: cards}"></th:block>
     </div>
-
-    <div class="foot" id="loading" hidden>불러오는 중…</div>
-
-    <!--
-      더 가져올 게 있을 때만 감시 칸을 둔다.
-      기록이 한 페이지 안에 다 들어가면 이 칸 자체가 없으므로 요청이 아예 일어나지 않는다.
-    -->
-    <div id="sentinel" th:if="${hasNext}" th:attr="data-next-page=${nextPage}"></div>
 
     <!--
       촬영 버튼은 이 화면에만 넣는다.
@@ -103,8 +108,6 @@
     <th:block th:replace="~{fragments/layout :: shotButton(${loginMember}, null)}"></th:block>
 
 </div>
-
-<script th:replace="~{post/fragments/infinite-scroll :: script(null)}"></script>
 
 </body>
 </html>

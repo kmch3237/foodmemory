@@ -62,21 +62,28 @@
     </div>
 
     <!-- ── 이 방의 기록 ───────────────────────────────────── -->
-    <p class="section section-gap">
-        이 방의 기록
-        <a class="link" th:href="@{/posts/new}" style="font-size:16px"> · 기록 올리기</a>
+    <!--
+      내 갤러리와 같은 규칙이다. 여기서는 최근 몇 장만, 다 보려면 전체보기로.
+      전체보기에는 spaceId 를 실어 보내 이 방의 사진만 나오게 한다.
+    -->
+    <p class="section section-gap section-row">
+        <span>
+            이 방의 기록
+            <a class="link" th:href="@{/posts/new}" style="font-size:16px"> · 기록 올리기</a>
+        </span>
+
+        <a class="btn btn-mini" th:if="${hasMore}"
+           th:href="@{/posts/all(spaceId=${spaceId})}">전체보기</a>
     </p>
 
     <p class="empty" th:if="${#lists.isEmpty(posts)}">
         아직 올라온 기록이 없습니다. 첫 사진을 올려보세요.
     </p>
 
-    <div class="gallery" id="gallery">
+    <!-- 미리보기는 2열이라 네 장이 2×2 로 딱 맞는다 -->
+    <div class="gallery gallery-preview">
         <th:block th:replace="~{post/fragments/gallery-cards :: cards}"></th:block>
     </div>
-
-    <div class="foot" id="loading" hidden>불러오는 중…</div>
-    <div id="sentinel" th:if="${hasNext}" th:attr="data-next-page=${nextPage}"></div>
 
     <!--
       이 방에서 누르는 촬영 버튼. spaceId 를 함께 보내 그 방에 올라가게 한다.
@@ -131,8 +138,6 @@
         btn.textContent = willShow ? '닫기' : '초대 코드';
     }
 </script>
-
-<script th:replace="~{post/fragments/infinite-scroll :: script(${spaceId})}"></script>
 
 </body>
 </html>

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<!--
+  전체보기 — 사진만 있는 화면.
+
+  이 화면을 따로 둔 이유:
+    내 갤러리와 방 화면에는 사진 말고도 놓을 것이 있다.
+    방 목록, 촬영 버튼, 초대 코드 같은 것들이다.
+    거기에 사진을 끝없이 이어붙이면 그것들이 화면 밖으로 밀려 쓸 수 없게 된다.
+    사진만 보고 싶을 때는 사진만 있는 자리로 오는 편이 낫다.
+
+  내 갤러리와 방 갤러리가 이 파일 하나를 같이 쓴다.
+  다른 것은 어느 목록을 보여주느냐뿐이고, 그건 spaceId 하나로 갈린다.
+  화면을 둘로 나누면 한쪽만 고치는 실수가 생긴다.
+-->
+<head th:replace="~{fragments/layout :: pageHead(${title})}"></head>
+<body>
+
+<div class="sheet">
+
+    <th:block th:replace="~{fragments/layout :: pageTop(${loginMember})}"></th:block>
+
+    <!-- 어디서 왔는지에 따라 돌아갈 곳이 다르다. 방에서 왔으면 그 방으로 -->
+    <p class="back"><a th:href="@{${backUrl}}" th:text="'← ' + ${backText}">← 뒤로</a></p>
+
+    <p class="section" th:text="${title}">제목</p>
+
+    <p class="empty" th:if="${#lists.isEmpty(posts)}">
+        아직 기록이 없습니다.
+    </p>
+
+    <!--
+      전체보기는 3열이다. 사진을 훑어보는 자리라 한 화면에 많이 들어오는 편이 낫다.
+      미리보기(2열)와 다른 점은 이 클래스 하나뿐이고, 사진 칸을 만드는 조각은 같은 것을 쓴다.
+    -->
+    <div class="gallery" id="gallery">
+        <th:block th:replace="~{post/fragments/gallery-cards :: cards}"></th:block>
+    </div>
+
+    <div class="foot" id="loading" hidden>불러오는 중…</div>
+
+    <!--
+      더 가져올 게 있을 때만 감시 칸을 둔다.
+      기록이 한 페이지 안에 다 들어가면 이 칸 자체가 없으므로 요청이 아예 일어나지 않는다.
+    -->
+    <div id="sentinel" th:if="${hasNext}" th:attr="data-next-page=${nextPage}"></div>
+
+</div>
+
+<!--
+  spaceId 를 그대로 넘긴다.
+  null 이면 내 갤러리를, 값이 있으면 그 방의 사진을 이어붙인다.
+-->
+<script th:replace="~{post/fragments/infinite-scroll :: script(${spaceId})}"></script>
+
+</body>
+</html>

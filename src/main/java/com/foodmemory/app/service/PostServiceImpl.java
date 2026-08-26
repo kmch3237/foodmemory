@@ -55,14 +55,6 @@ public class PostServiceImpl implements PostService {
     private final KakaoLocalClient kakaoLocalClient;
 
     /**
-     * 한 번에 가져올 게시물 수.
-     *
-     * 격자가 3열이므로 3의 배수로 두어야 마지막 줄이 어중간하게 비지 않는다.
-     * 크게 잡으면 요청 수는 줄지만 첫 화면이 느려지고, 작게 잡으면 그 반대다.
-     */
-    private static final int PAGE_SIZE = 6;
-
-    /**
      * readOnly = true 는 조회 전용 트랜잭션이라는 표시다.
      * 변경 감지를 위한 스냅샷을 만들지 않아 조금 가볍고, 실수로 데이터를 바꾸는 것도 막아준다.
      *
@@ -72,16 +64,16 @@ public class PostServiceImpl implements PostService {
      */
     @Override
     @Transactional(readOnly = true)
-    public GalleryPage getMyGallery(Long memberId, int page) {
+    public GalleryPage getMyGallery(Long memberId, int page, int size) {
         // 정렬은 이미 쿼리의 order by 에 적혀 있으므로 PageRequest 에는 정렬을 주지 않는다.
         // 양쪽에 정렬을 걸면 order by 가 두 번 붙어 어긋난다.
         return toGalleryPage(
-                postRepository.findMyPosts(memberId, PageRequest.of(page, PAGE_SIZE)), page);
+                postRepository.findMyPosts(memberId, PageRequest.of(page, size)), page);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public GalleryPage getSpaceGallery(Long spaceId, Long memberId, int page) {
+    public GalleryPage getSpaceGallery(Long spaceId, Long memberId, int page, int size) {
         /*
          * 쿼리를 돌리기 전에 권한을 먼저 본다.
          *
@@ -93,7 +85,7 @@ public class PostServiceImpl implements PostService {
         }
 
         return toGalleryPage(
-                postRepository.findSpacePosts(spaceId, PageRequest.of(page, PAGE_SIZE)), page);
+                postRepository.findSpacePosts(spaceId, PageRequest.of(page, size)), page);
     }
 
     /**

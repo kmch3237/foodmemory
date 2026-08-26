@@ -53,10 +53,17 @@ public class PostController {
         model.addAttribute("loginMember", loginMember);
         model.addAttribute("spaces", spaceService.findMySpaces(loginMember.memberId()));
 
-        GalleryPage page = postService.getMyGallery(loginMember.memberId(), 0);
+        /*
+         * 첫 화면은 사진을 다 보여주는 곳이 아니다.
+         * 방 목록과 촬영 버튼이 함께 있는 자리라, 사진이 길게 이어지면 그것들이 밀린다.
+         * 여기서는 최근 몇 장만 보여주고, 다 보려면 전체보기로 간다.
+         */
+        GalleryPage page = postService.getMyGallery(
+                loginMember.memberId(), 0, PostService.PREVIEW_SIZE);
+
         model.addAttribute("posts", page.posts());
-        model.addAttribute("hasNext", page.hasNext());
-        model.addAttribute("nextPage", page.nextPage());
+        // 전체보기 버튼은 더 볼 게 남았을 때만 뜬다
+        model.addAttribute("hasMore", page.hasNext());
         model.addAttribute("uploadUrlPrefix", uploadUrlPrefix);
         return "post/list";
     }
@@ -86,14 +93,64 @@ public class PostController {
         // spaceId 가 있으면 공간 갤러리를, 없으면 내 갤러리를 이어붙인다.
         // 어느 쪽이든 서비스가 권한을 확인하므로 여기서 또 검사하지 않는다.
         GalleryPage galleryPage = (spaceId == null)
-                ? postService.getMyGallery(loginMember.memberId(), page)
-                : postService.getSpaceGallery(spaceId, loginMember.memberId(), page);
+                ? postService.getMyGallery(loginMember.memberId(), page, PostService.FULL_PAGE_SIZE)
+                : postService.getSpaceGallery(spaceId, loginMember.memberId(), page,
+                                              PostService.FULL_PAGE_SIZE);
 
         model.addAttribute("posts", galleryPage.posts());
         model.addAttribute("uploadUrlPrefix", uploadUrlPrefix);
         response.setHeader("X-Has-Next", String.valueOf(galleryPage.hasNext()));
 
         return "post/fragments/gallery-cards :: cards";
+    }
+
+    /**
+     * 전체보기. 사진만 격자로 늘어놓고 스크롤에 따라 계속 이어붙인다.
+     *
+     * 요약 화면과 나누는 이유:
+     *   첫 화면에는 방 목록·촬영 버튼처럼 사진 말고도 놓을 것이 있다.
+     *   거기에 사진까지 무한히 이어붙이면 그 둘이 화면 밖으로 밀려 쓸 수 없게 된다.
+     *   사진만 보고 싶을 때는 사진만 있는 자리로 오는 편이 낫다.
+     *
+     * 주소를 /posts/all?spaceId=3 으로 둔 이유:
+     *   이미 /posts/more 가 같은 방식으로 갈린다. 내 갤러리냐 방이냐는
+     *   spaceId 하나로 정해지므로 화면도 하나면 된다.
+     *   /posts/{postId} 와 겹치지 않는 것은 Spring 이 고정된 경로를 먼저 보기 때문이다.
+     */
+    @GetMapping("/posts/all")
+    public String all(@RequestParam(required = false) Long spaceId,
+                      @Login LoginMember loginMember,
+                      Model model) {
+
+        // 어느 쪽이든 서비스가 권한을 확인한다. 여기서 또 검사하지 않는다.
+        GalleryPage page = (spaceId == null)
+                ? postService.getMyGallery(loginMember.memberId(), 0, PostService.FULL_PAGE_SIZE)
+                : postService.getSpaceGallery(spaceId, loginMember.memberId(), 0,
+                                              PostService.FULL_PAGE_SIZE);
+
+        model.addAttribute("loginMember", loginMember);
+        model.addAttribute("posts", page.posts());
+        model.addAttribute("hasNext", page.hasNext());
+        model.addAttribute("nextPage", page.nextPage());
+        model.addAttribute("spaceId", spaceId);
+        model.addAttribute("uploadUrlPrefix", uploadUrlPrefix);
+
+        /*
+         * 제목과 돌아갈 곳은 어디서 왔는지에 따라 다르다.
+         * 방에서 왔는데 '내 갤러리' 로 돌려보내면 방을 다시 찾아 들어가야 한다.
+         */
+        if (spaceId == null) {
+            model.addAttribute("title", "내 갤러리");
+            model.addAttribute("backUrl", "/");
+            model.addAttribute("backText", "내 갤러리");
+        } else {
+            model.addAttribute("title",
+                    spaceService.getDetail(spaceId, loginMember.memberId()).name());
+            model.addAttribute("backUrl", "/spaces/" + spaceId);
+            model.addAttribute("backText", "방으로");
+        }
+
+        return "post/all";
     }
 
     /**
