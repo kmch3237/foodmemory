@@ -591,6 +591,52 @@ input[type=checkbox] { width: auto; }
     cursor: pointer;
 }
 
+/*
+ * 고른 사진의 미리보기 격자.
+ *
+ * :empty 로 숨기는 이유:
+ *   아직 아무것도 고르지 않았을 때 이 칸이 빈 채로 자리를 차지하면,
+ *   아래 항목들이 이유 없이 밀려 내려가 화면이 어긋나 보인다.
+ *   내용이 생기는 순간에만 나타나게 한다. 자바스크립트로 여닫지 않아도 된다.
+ */
+.pick-preview {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.pick-preview:empty { display: none; }
+
+/*
+ * aspect-ratio 로 정사각형을 만들고 object-fit: cover 로 채운다.
+ *
+ * 높이를 정하지 않으면 세로 사진과 가로 사진의 높이가 제각각이라 줄이 들쭉날쭉해진다.
+ * cover 는 비율을 지키면서 칸을 꽉 채우고 넘치는 부분만 잘라낸다.
+ * 여기서는 어떤 사진인지 알아보기만 하면 되므로 잘려도 괜찮다.
+ */
+.pick-preview img,
+.pick-noimg {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    border: 2px solid var(--line);
+    border-radius: 12px 6px 10px 8px / 8px 10px 6px 12px;
+}
+
+/* 브라우저가 그리지 못하는 형식일 때 파일 이름을 대신 보여주는 칸 */
+.pick-noimg {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    font-size: 12px;
+    color: var(--ink-soft);
+    text-align: center;
+    word-break: break-all;
+    overflow: hidden;
+}
+
 /* ── 촬영 버튼 ────────────────────────────────────────────────
    갤러리 끝에서 사진과 함께 스크롤된다.
 

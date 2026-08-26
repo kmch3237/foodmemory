@@ -123,8 +123,6 @@ public class SpaceController {
                 spaceId, loginMember.memberId(), 0, PostService.PREVIEW_SIZE);
 
         model.addAttribute("posts", page.posts());
-        // 전체보기 버튼은 더 볼 게 남았을 때만 뜬다
-        model.addAttribute("hasMore", page.hasNext());
         model.addAttribute("spaceId", spaceId);
         model.addAttribute("uploadUrlPrefix", uploadUrlPrefix);
         return "space/detail";
