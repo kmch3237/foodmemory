@@ -117,6 +117,7 @@
         <button type="submit" class="btn wide">올리기</button>
     </form>
 
+    <script th:src="@{/js/shot-handoff.js}"></script>
     <script>
         /*
           고른 사진을 장수와 썸네일로 보여준다.
@@ -182,6 +183,32 @@
             inputs.forEach(function (input) {
                 input.addEventListener('change', render);
             });
+
+            /*
+              촬영 버튼으로 넘어온 경우, 맡겨둔 사진을 꺼내 첫 번째 칸에 채운다.
+
+              파일 칸에 값을 직접 넣을 수 없는 이유:
+                input.files 는 읽기 전용이다. 스크립트가 마음대로 파일을 끼워 넣어
+                사용자 몰래 올려버리는 일을 막으려고 그렇게 만들어져 있다.
+                대신 DataTransfer 라는 임시 꾸러미에 파일을 담아 통째로 건네는 길은 열려 있다.
+                사용자가 방금 자기 손으로 찍은 사진이므로 몰래 끼워 넣는 것과는 다르다.
+
+              꺼내 온 것이 없으면 아무 일도 하지 않는다.
+              저장이 막힌 브라우저에서도 폼은 그대로 열리고, '지금 찍기' 를 누르면 된다.
+            */
+            if (new URLSearchParams(location.search).has('shot')) {
+                ShotHandoff.take().then(function (files) {
+                    if (!files || files.length === 0) {
+                        return;
+                    }
+
+                    var parcel = new DataTransfer();
+                    files.forEach(function (file) { parcel.items.add(file); });
+
+                    inputs[0].files = parcel.files;
+                    render();
+                });
+            }
         })();
     </script>
 
