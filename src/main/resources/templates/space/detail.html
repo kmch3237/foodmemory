@@ -69,7 +69,9 @@
     <p class="section section-gap section-row">
         <span>
             이 방의 기록
-            <a class="link" th:href="@{/posts/new}" style="font-size:16px"> · 기록 올리기</a>
+            <!-- spaceId 를 실어 보낸다. 이 방에서 눌렀으니 이 방에 올라간다 -->
+            <a class="link" th:href="@{/posts/new(spaceId=${spaceId})}"
+               style="font-size:16px"> · 기록 올리기</a>
         </span>
 
         <a class="btn btn-mini"

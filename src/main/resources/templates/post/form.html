@@ -9,9 +9,16 @@
 
     <div class="column">
 
-    <p class="back"><a th:href="@{/}">← 내 갤러리</a></p>
+    <!-- 방에서 왔으면 방으로 돌려보낸다. 늘 내 갤러리로 보내면 방을 다시 찾아가야 한다 -->
+    <p class="back"><a th:href="@{${backUrl}}" th:text="'← ' + ${targetName}">← 내 갤러리</a></p>
 
     <p class="section">기록 올리기</p>
+
+    <!--
+      어디에 올릴지는 어느 화면에서 눌렀는지로 이미 정해졌다.
+      고르게 하지는 않지만, 어디로 가는지는 알 수 있어야 한다.
+    -->
+    <p class="hint"><b th:text="${targetName}">내 갤러리</b>에 올라갑니다.</p>
 
     <!-- 등록에 실패했을 때 이유를 보여준다 -->
     <div class="msg err" th:if="${error}" th:text="${error}">오류 메시지</div>
@@ -77,20 +84,22 @@
             <div class="pick-preview" id="preview"></div>
         </div>
 
-        <label class="field">
-            <span>어디에 올릴까요?</span>
-            <!--
-              내가 참여 중인 방만 목록에 나온다.
-              다만 이 목록만 믿지 않는다. 개발자 도구로 값을 남의 방 번호로 바꿔 보낼 수 있어서,
-              서버가 저장 직전에 그 방의 참여자인지 다시 확인한다.
-            -->
-            <select name="spaceId">
-                <option value="">나만 보기 (개인 기록)</option>
-                <option th:each="space : ${spaces}"
-                        th:value="${space.spaceId}"
-                        th:text="${space.name}">방 이름</option>
-            </select>
-        </label>
+        <!--
+          어디에 올릴지는 여기서 고르지 않는다. 이 화면에 들어온 경로가 이미 정했다.
+
+          고르는 칸을 없앤 이유:
+            방에 들어가서 '기록 올리기' 를 누른 사람은 이미 그 방에 올릴 생각이다.
+            그런데 목록의 기본값이 '나만 보기' 라, 그대로 두고 올리면 방이 아니라
+            개인 기록으로 들어갔다. 방금 있던 자리와 다른 곳에 저장되는 셈이다.
+
+          값이 있을 때만 칸을 만든다.
+            빈 문자열로 두면 그것대로 서버에 전달돼 '빈 값을 방 번호로 볼 것인가' 하는
+            판단이 서버에 생긴다. 촬영 버튼도 같은 이유로 이렇게 해두었다.
+
+          숨은 값이라고 믿지는 않는다. 개발자 도구로 남의 방 번호로 바꿔 보낼 수 있어서,
+          서버가 저장 직전에 그 방의 참여자인지 다시 확인한다.
+        -->
+        <input type="hidden" name="spaceId" th:if="${spaceId != null}" th:value="${spaceId}">
 
         <label class="field">
             <span>먹은 날짜</span>

@@ -291,9 +291,41 @@ public class PostController {
      * 고르지 않으면 개인 기록이 된다.
      */
     @GetMapping("/posts/new")
-    public String uploadForm(@Login LoginMember loginMember, Model model) {
+    public String uploadForm(@RequestParam(required = false) Long spaceId,
+                             @Login LoginMember loginMember,
+                             Model model) {
+
         model.addAttribute("loginMember", loginMember);
-        model.addAttribute("spaces", spaceService.findMySpaces(loginMember.memberId()));
+        model.addAttribute("spaceId", spaceId);
+
+        /*
+         * 어디에 올릴지는 '어느 화면에서 눌렀는가' 로 이미 정해진다.
+         *
+         *   내 갤러리에서 눌렀다 → spaceId 없음 → 개인 기록
+         *   방에서 눌렀다       → spaceId 있음 → 그 방
+         *
+         * 고르는 칸을 없앤 이유:
+         *   방에 들어가서 '기록 올리기' 를 누른 사람은 이미 그 방에 올릴 생각이다.
+         *   그런데 목록의 기본값이 '나만 보기' 라, 그대로 두고 올리면 방이 아니라
+         *   개인 기록으로 들어갔다. 방금 있던 자리와 다른 곳에 저장되는 셈이다.
+         *   촬영 버튼도 같은 이유로 화면을 보고 정하게 해두었다. 규칙이 하나여야 한다.
+         *
+         * 화면에는 어디로 가는지만 알려준다. 고르게 하지 않아도 알 수는 있어야 한다.
+         */
+        if (spaceId == null) {
+            model.addAttribute("targetName", "내 갤러리");
+            model.addAttribute("backUrl", "/");
+        } else {
+            /*
+             * 방 이름을 가져오면서 참여자인지도 함께 확인된다.
+             * getDetail 은 참여자가 아니면 예외를 던지므로, 주소창에 남의 방 번호를
+             * 넣어도 이 화면이 열리지 않는다. 저장할 때 서비스가 한 번 더 본다.
+             */
+            model.addAttribute("targetName",
+                    spaceService.getDetail(spaceId, loginMember.memberId()).name());
+            model.addAttribute("backUrl", "/spaces/" + spaceId);
+        }
+
         return "post/form";
     }
 
@@ -322,7 +354,11 @@ public class PostController {
             postService.upload(photos, content, eatenDate, loginMember.memberId(), spaceId);
         } catch (IllegalArgumentException | IllegalStateException e) {
             redirectAttributes.addFlashAttribute("error", e.getMessage());
-            return "redirect:/posts/new";
+            // 어디에 올리려던 것인지 잃지 않는다. 안 그러면 방에서 실패한 사람이
+            // 개인 기록 화면으로 떨어져, 다시 방을 찾아 들어가야 한다.
+            return spaceId == null
+                    ? "redirect:/posts/new"
+                    : "redirect:/posts/new?spaceId=" + spaceId;
         }
 
         /*
