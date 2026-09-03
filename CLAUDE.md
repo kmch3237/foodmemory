@@ -56,6 +56,10 @@ Spring Boot · Thymeleaf · MySQL. 먹은 것을 사진으로 기록하고 방(s
 
   사용자에게 매번 확인을 부탁하기 전에 이걸로 먼저 본다.
 
+  **이건 로컬에서만 쓴다.** `KEYS` 는 키를 처음부터 끝까지 훑는데,
+  Redis 는 명령을 한 줄로 세워 하나씩 처리하므로 그동안 다른 요청이 전부 막힌다.
+  EC2 에서 세션을 봐야 하면 조금씩 나눠 도는 `SCAN` 을 쓴다.
+
 ## 배포
 
 - **main 에 push 하면 곧바로 배포된다**(GitHub Actions → EC2, `systemctl restart foodmemory`).
