@@ -12,9 +12,10 @@
 #
 # ── 이 스크립트의 한계 ──
 #
-# 백업 파일이 원본과 같은 서버에 있다. 서버가 통째로 사라지면 백업도 같이 사라진다.
-# 그래서 이것만으로는 절반이다. "실수로 지웠다" 는 막지만 "서버가 죽었다" 는 못 막는다.
-# 나머지 절반(서버 밖으로 내보내기)은 따로 붙인다.
+# 백업 파일이 원본과 같은 서버에만 있으면 절반짜리다.
+# 서버가 통째로 사라지면 백업도 같이 사라지기 때문이다.
+# 그래서 아래 3번에서 한 벌을 S3(서버 밖)로 내보낸다.
+# S3_BUCKET 이 비어 있으면 그 단계를 건너뛰고 서버 안 백업만 만든다.
 
 set -euo pipefail
 # -e : 명령 하나라도 실패하면 즉시 멈춘다
@@ -27,7 +28,16 @@ set -euo pipefail
 BACKUP_DIR=/home/ubuntu/backups
 UPLOAD_DIR=/home/ubuntu/app/uploads
 DB_NAME=foodmemory
-KEEP_DAYS=7          # 며칠치를 남길지
+KEEP_DAYS=7          # 서버 안에 며칠치를 남길지
+
+# 서버 밖 보관함(S3 버킷 이름). 비워두면 내보내기 단계를 건너뛴다.
+# 버킷이 없는 서버에서도 이 스크립트가 그대로 돌게 하려는 것이다.
+S3_BUCKET="mealmates-backup-mc"
+
+# cron 은 PATH 를 /usr/bin:/bin 만 들고 돈다.
+# aws 는 /usr/local/bin 에 깔려 있어서, 이 줄이 없으면 손으로 칠 때는 되고
+# 새벽 4시에만 "명령을 찾을 수 없다" 며 조용히 실패한다.
+PATH=/usr/local/bin:$PATH
 
 STAMP=$(date +%Y%m%d-%H%M%S)
 
@@ -58,7 +68,28 @@ sudo mysqldump --single-transaction --routines --events "$DB_NAME" \
 #   나중에 다른 자리에 풀 때 번거롭다. uploads 부터 시작하게 만든다.
 tar -czf "$BACKUP_DIR/uploads-$STAMP.tar.gz" -C "$(dirname "$UPLOAD_DIR")" "$(basename "$UPLOAD_DIR")"
 
-# ── 3. 오래된 백업 지우기 ────────────────────────────────────
+# ── 3. 서버 밖으로 내보내기 ──────────────────────────────────
+#
+# 여기까지는 백업이 원본과 같은 서버에 있다. 그래서 '실수로 지웠다' 는 막지만
+# '서버가 통째로 사라졌다' 는 못 막는다. 한 벌을 서버 밖에 둬야 백업이 완성된다.
+#
+# 실패해도 스크립트를 멈추지 않는 이유:
+#   맨 위 set -e 때문에 그냥 두면 업로드가 실패할 때 즉시 멈춘다.
+#   그러면 아래 '오래된 백업 지우기' 가 건너뛰어져 디스크가 찬다.
+#   S3 가 잠깐 안 되는 것보다 디스크가 차서 서버가 멈추는 쪽이 훨씬 나쁘다.
+#   그래서 실패를 붙잡아 경고만 남기고 계속 간다.
+if [ -n "$S3_BUCKET" ]; then
+    if aws s3 cp "$BACKUP_DIR/db-$STAMP.sql.gz"      "s3://$S3_BUCKET/db/"      --only-show-errors \
+    && aws s3 cp "$BACKUP_DIR/uploads-$STAMP.tar.gz" "s3://$S3_BUCKET/uploads/" --only-show-errors; then
+        echo "$(date '+%F %T') S3 업로드 완료  s3://$S3_BUCKET"
+    else
+        echo "$(date '+%F %T') ⚠️ S3 업로드 실패 — 서버 안 백업만 있다. 확인이 필요하다"
+    fi
+else
+    echo "$(date '+%F %T') ⚠️ S3_BUCKET 이 비어 있다 — 서버 안에만 백업이 있다"
+fi
+
+# ── 4. 오래된 백업 지우기 ────────────────────────────────────
 #
 # 안 지우면 디스크가 찬다. 디스크가 차면 앱이 아니라 서버 전체가 멈춘다.
 # 백업하려다 서비스를 죽이는 셈이 된다.
@@ -67,7 +98,7 @@ tar -czf "$BACKUP_DIR/uploads-$STAMP.tar.gz" -C "$(dirname "$UPLOAD_DIR")" "$(ba
 find "$BACKUP_DIR" -name 'db-*.sql.gz'      -mtime +$KEEP_DAYS -delete
 find "$BACKUP_DIR" -name 'uploads-*.tar.gz' -mtime +$KEEP_DAYS -delete
 
-# ── 4. 결과를 남긴다 ─────────────────────────────────────────
+# ── 5. 결과를 남긴다 ─────────────────────────────────────────
 #
 # 백업이 조용히 실패하는 것이 제일 위험하다.
 # 정작 필요할 때 열어보니 지난달 것뿐이더라, 가 실제로 흔한 사고다.
