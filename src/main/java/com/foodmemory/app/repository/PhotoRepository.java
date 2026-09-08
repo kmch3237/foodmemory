@@ -1,6 +1,7 @@
 package com.foodmemory.app.repository;
 
 import com.foodmemory.app.entity.Photo;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -32,4 +33,14 @@ public interface PhotoRepository extends JpaRepository<Photo, Long> {
      * photo_id 오름차순이 곧 업로드 순서다. 별도의 순서 컬럼을 두지 않은 이유이기도 하다.
      */
     List<Photo> findByPostPostIdOrderByPhotoIdAsc(Long postId);
+
+    /**
+     * 아직 작은 사본이 없는 사진을 가져온다. 뒤늦게 만들어 붙일 때 쓴다.
+     *
+     * Pageable 을 받는 이유:
+     *   사진이 많이 쌓인 뒤에 전부 한꺼번에 꺼내면 메모리가 감당하지 못한다.
+     *   운영 서버는 램이 1GB 뿐이다. 한 번에 처리할 만큼만 끊어 가져온다.
+     */
+    @Query("select ph from Photo ph where ph.thumbPath is null order by ph.photoId asc")
+    List<Photo> findByThumbPathIsNull(Pageable pageable);
 }

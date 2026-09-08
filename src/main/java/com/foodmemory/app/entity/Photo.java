@@ -53,10 +53,40 @@ public class Photo extends BaseEntity {
     @Column(nullable = false, length = 500)
     private String filePath;
 
-    public static Photo create(Post post, String filePath) {
+    /**
+     * 목록에서 쓰는 작은 사본의 상대 경로. 예) 2026/07/abc123_thumb.jpg
+     *
+     * NULL 을 허용하는 이유:
+     *   - 이 칸이 생기기 전에 올라온 사진들은 사본이 없다
+     *   - 자바가 못 읽는 형식(HEIC)이나 일시적인 실패로 못 만들 수 있다
+     *   원본을 대신 보여주면 화면은 멀쩡하므로, 없는 것을 오류로 다루지 않는다.
+     */
+    @Column(length = 500)
+    private String thumbPath;
+
+    public static Photo create(Post post, String filePath, String thumbPath) {
         Photo photo = new Photo();
         photo.post = post;
         photo.filePath = filePath;
+        photo.thumbPath = thumbPath;
         return photo;
+    }
+
+    /**
+     * 목록에 보여줄 경로. 사본이 있으면 사본을, 없으면 원본을 준다.
+     *
+     * 이 판단을 엔티티에 두는 이유:
+     *   화면·서비스 여러 곳에서 같은 조건문을 반복하면 한 곳만 고치고 놓치기 쉽다.
+     *   "무엇을 보여줄지" 는 사진 자신이 제일 잘 안다.
+     */
+    public String getDisplayPath() {
+        return thumbPath != null ? thumbPath : filePath;
+    }
+
+    /** 나중에 사본을 만들어 붙일 때 쓴다. 이미 있으면 덮어쓰지 않는다. */
+    public void attachThumbnail(String thumbPath) {
+        if (this.thumbPath == null) {
+            this.thumbPath = thumbPath;
+        }
     }
 }

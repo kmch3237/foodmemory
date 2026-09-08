@@ -366,6 +366,18 @@ CREATE TABLE photo (
     --   (3) 경로 조작(../../)이나 실행 가능한 확장자 업로드가 가능해진다
     file_path   VARCHAR(500)  NOT NULL                 COMMENT '저장 경로 (도메인 제외 상대 경로)',
 
+    -- 목록 화면에서 쓰는 작은 사본. 원본과 같은 폴더에 _thumb.jpg 로 나란히 둔다.
+    --
+    -- 이 칸이 생기기 전에는 목록에서도 원본을 그대로 내려보냈다.
+    -- 화면에서는 CSS 로 작게 그렸지만 브라우저는 2.5MB 원본을 통째로 받았고,
+    -- 한 페이지(12장)에 약 31MB 가 오갔다. 보이는 크기와 보내는 크기는 다르다.
+    --
+    -- NULL 을 허용하는 이유:
+    --   (1) 이 칸이 생기기 전에 올라온 사진에는 사본이 없다
+    --   (2) HEIC 처럼 자바가 못 읽는 형식은 사본을 못 만든다
+    --   없으면 원본을 대신 보여주면 되므로, 없는 것을 오류로 다루지 않는다.
+    thumb_path  VARCHAR(500)  NULL                     COMMENT '썸네일 경로 (없으면 원본을 쓴다)',
+
     created_at  DATETIME      NOT NULL                 COMMENT '업로드 시각',
     updated_at  DATETIME      NOT NULL                 COMMENT '마지막 수정 시각',
 

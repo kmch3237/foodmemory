@@ -23,6 +23,22 @@ public interface FileStorage {
     String store(MultipartFile file);
 
     /**
+     * 이미 저장된 원본에서 작은 사본(썸네일)을 만들어 저장하고, 그 상대 경로를 돌려준다.
+     * 예) 2026/08/3f8c1e9a4b2d.jpg  →  2026/08/3f8c1e9a4b2d_thumb.jpg
+     *
+     * 원본을 받아 만드는 이유:
+     *   업로드 순간뿐 아니라 나중에 이미 쌓인 사진에도 똑같이 쓸 수 있다.
+     *   업로드 경로와 보정 경로가 같은 코드를 지나므로 결과가 어긋나지 않는다.
+     *
+     * 못 만들었으면 null 을 돌려준다. 예외를 던지지 않는 이유:
+     *   썸네일은 없으면 원본을 대신 보여주면 되는 '있으면 좋은 것' 이다.
+     *   자바가 못 읽는 형식(HEIC)이라는 이유로 사용자의 기록을 막을 수는 없다.
+     *
+     * @return 썸네일의 상대 경로. 만들지 못했으면 null
+     */
+    String storeThumbnail(String originalRelativePath);
+
+    /**
      * DB 에 저장된 상대 경로로 실제 파일의 위치를 알려준다.
      * 저장된 사진에서 EXIF 를 다시 읽을 때 쓴다.
      */

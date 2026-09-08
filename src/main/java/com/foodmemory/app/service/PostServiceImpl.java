@@ -37,7 +37,9 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Slf4j
 @Service
@@ -115,9 +117,12 @@ public class PostServiceImpl implements PostService {
                     List<Photo> photos = photosByPost.get(post.getPostId());
                     // 대표 사진은 photo_id 가 가장 작은 것, 즉 먼저 올린 사진이다.
                     // 쿼리에서 이미 오름차순 정렬했으므로 첫 번째를 쓰면 된다.
+                    //
+                    // getDisplayPath() 는 작은 사본이 있으면 그것을, 없으면 원본을 준다.
+                    // 목록은 손톱만 한 칸에 그리므로 원본을 보낼 이유가 없다.
                     String thumbnail = (photos == null || photos.isEmpty())
                             ? null
-                            : photos.get(0).getFilePath();
+                            : photos.get(0).getDisplayPath();
                     return PostListResponse.from(post, thumbnail);
                 })
                 .toList();
@@ -320,7 +325,13 @@ public class PostServiceImpl implements PostService {
                 continue;
             }
             String storedPath = fileStorage.store(file);        // 디스크에 저장하고 경로를 받는다
-            photoRepository.save(Photo.create(post, storedPath)); // DB 에는 경로만 저장한다
+
+            // 목록 화면에서 쓸 작은 사본을 함께 만든다.
+            // 못 만들면 null 이 돌아오고, 그때는 목록에서 원본을 그대로 쓴다.
+            // 사본을 못 만들었다고 사용자의 기록을 실패시키지는 않는다.
+            String thumbPath = fileStorage.storeThumbnail(storedPath);
+
+            photoRepository.save(Photo.create(post, storedPath, thumbPath)); // DB 에는 경로만 저장한다
         }
 
         return post.getPostId();
@@ -455,7 +466,13 @@ public class PostServiceImpl implements PostService {
         List<Photo> photos = photoRepository.findByPostPostIdOrderByPhotoIdAsc(postId);
 
         // 파일 경로를 미리 챙겨둔다. 행을 지운 뒤에는 어떤 파일이었는지 알 수 없다.
-        List<String> filePaths = photos.stream().map(Photo::getFilePath).toList();
+        //
+        // 사진 한 장에 파일이 둘(원본 + 작은 사본)이므로 둘 다 챙긴다.
+        // 사본을 빠뜨리면 아무도 안 보는 파일이 디스크에 계속 쌓인다.
+        List<String> filePaths = photos.stream()
+                .flatMap(photo -> Stream.of(photo.getFilePath(), photo.getThumbPath()))
+                .filter(Objects::nonNull)   // 사본이 없는 사진도 있다
+                .toList();
 
         // 댓글도 post 를 FK 로 참조한다. 남겨두면 게시물 삭제를 DB 가 거부한다.
         // 사진과 마찬가지로 자식부터 정리한다.
@@ -466,7 +483,8 @@ public class PostServiceImpl implements PostService {
 
         deleteFilesAfterCommit(filePaths);
 
-        log.info("게시물 삭제: postId={}, 사진 {}장", postId, filePaths.size());
+        // 파일 개수가 아니라 사진 장수를 남긴다. 한 장에 파일이 둘일 수 있어서다.
+        log.info("게시물 삭제: postId={}, 사진 {}장(파일 {}개)", postId, photos.size(), filePaths.size());
     }
 
     /**

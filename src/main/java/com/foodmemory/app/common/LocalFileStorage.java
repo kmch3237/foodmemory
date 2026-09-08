@@ -26,14 +26,20 @@ public class LocalFileStorage implements FileStorage {
     /** 허용할 확장자. 목록에 없는 것은 저장하지 않는다. */
     private static final List<String> ALLOWED = List.of("jpg", "jpeg", "png", "gif", "webp", "heic");
 
+    /** 썸네일 파일명 뒤에 붙이는 표시. 원본과 같은 폴더에 나란히 둔다. */
+    private static final String THUMB_SUFFIX = "_thumb.jpg";
+
     private final Path root;
+    private final ThumbnailMaker thumbnailMaker;
 
     /**
      * @Value 는 application.yml 의 값을 가져온다.
      * app.upload.path 에 적어둔 값이 여기로 들어온다.
      */
-    public LocalFileStorage(@Value("${app.upload.path}") String uploadPath) {
+    public LocalFileStorage(@Value("${app.upload.path}") String uploadPath,
+                            ThumbnailMaker thumbnailMaker) {
         this.root = Paths.get(uploadPath).toAbsolutePath().normalize();
+        this.thumbnailMaker = thumbnailMaker;
     }
 
     @Override
@@ -64,6 +70,44 @@ public class LocalFileStorage implements FileStorage {
 
         // DB 에 저장될 값. 폴더 위치도 도메인도 포함하지 않는다.
         return relativePath;
+    }
+
+    @Override
+    public String storeThumbnail(String originalRelativePath) {
+        if (originalRelativePath == null || originalRelativePath.isBlank()) {
+            return null;
+        }
+
+        Path source = root.resolve(originalRelativePath).normalize();
+
+        // delete() 와 같은 이유로 폴더 밖을 가리키는 경로는 다루지 않는다.
+        if (!source.startsWith(root) || !Files.isRegularFile(source)) {
+            log.warn("썸네일을 만들 원본을 찾지 못했습니다: {}", originalRelativePath);
+            return null;
+        }
+
+        byte[] small = thumbnailMaker.shrink(source);
+        if (small == null) {
+            return null;   // 못 만든 이유는 ThumbnailMaker 가 남긴다. 원본을 그대로 쓰면 된다
+        }
+
+        // 확장자를 떼고 _thumb.jpg 를 붙인다.
+        // 원본이 png·heic 여도 사본은 언제나 jpg 다. 크기가 작고 어디서나 열린다.
+        int dot = originalRelativePath.lastIndexOf('.');
+        String thumbRelativePath =
+                (dot < 0 ? originalRelativePath : originalRelativePath.substring(0, dot)) + THUMB_SUFFIX;
+
+        try {
+            Path target = root.resolve(thumbRelativePath);
+            Files.createDirectories(target.getParent());
+            Files.write(target, small);
+        } catch (IOException e) {
+            // 여기서도 던지지 않는다. 원본은 이미 저장돼 있어 기록 자체는 온전하다.
+            log.warn("썸네일 저장에 실패했습니다: {}", thumbRelativePath, e);
+            return null;
+        }
+
+        return thumbRelativePath;
     }
 
     @Override
