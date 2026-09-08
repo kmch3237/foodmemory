@@ -28,13 +28,20 @@ jobs:
           [ -n "${{ secrets.EC2_SSH_KEY }}" ] || { echo "EC2_SSH_KEY 시크릿이 없다"; exit 1; }
           echo "시크릿 확인 완료"
 
+      # @v7 의 v7 은 이 조각의 버전이다. 우리 코드와는 상관없고, GitHub 이 만든
+      # 남의 작업 조각을 어느 버전으로 가져다 쓸지를 고르는 것이다.
+      #
+      # v4 를 쓰다가 올렸다. v4 는 Node 20 에서 도는데 GitHub 이 러너에서 Node 20 을
+      # 걷어내는 중이라, 한동안 Node 24 에 억지로 얹어 돌려주고 있었다.
+      # 그 배려가 끝나는 날 코드를 하나도 안 바꿔도 배포가 갑자기 실패한다.
+      # 이 저장소는 push 가 곧 배포라, 급할 때 그게 터지면 곤란하다.
       - name: 코드 가져오기
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # 자바 17 이 아니라 21 이다. 프로젝트가 21 로 되어 있어서
       # 버전이 낮으면 빌드가 아예 안 된다.
       - name: JDK 21 준비
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
