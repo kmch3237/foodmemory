@@ -31,15 +31,18 @@ public class LocalFileStorage implements FileStorage {
 
     private final Path root;
     private final ThumbnailMaker thumbnailMaker;
+    private final ExifStripper exifStripper;
 
     /**
      * @Value 는 application.yml 의 값을 가져온다.
      * app.upload.path 에 적어둔 값이 여기로 들어온다.
      */
     public LocalFileStorage(@Value("${app.upload.path}") String uploadPath,
-                            ThumbnailMaker thumbnailMaker) {
+                            ThumbnailMaker thumbnailMaker,
+                            ExifStripper exifStripper) {
         this.root = Paths.get(uploadPath).toAbsolutePath().normalize();
         this.thumbnailMaker = thumbnailMaker;
+        this.exifStripper = exifStripper;
     }
 
     @Override
@@ -64,6 +67,11 @@ public class LocalFileStorage implements FileStorage {
             Path target = root.resolve(relativePath);
             Files.createDirectories(target.getParent());
             file.transferTo(target);
+
+            // 찍은 곳의 위치가 방 참여자에게 건너가지 않도록 파일에서 걷어낸다.
+            // 저장하는 길이 여기 하나뿐이라, 여기서 하면 어떤 업로드도 빠지지 않는다.
+            // 좌표가 필요하면 부르는 쪽이 저장하기 전에 읽어둬야 한다(PostServiceImpl.upload).
+            exifStripper.strip(target);
         } catch (IOException e) {
             throw new IllegalStateException("파일 저장에 실패했습니다.", e);
         }

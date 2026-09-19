@@ -378,6 +378,18 @@ CREATE TABLE photo (
     --   없으면 원본을 대신 보여주면 되므로, 없는 것을 오류로 다루지 않는다.
     thumb_path  VARCHAR(500)  NULL                     COMMENT '썸네일 경로 (없으면 원본을 쓴다)',
 
+    -- 사진을 찍은 곳의 좌표. 근처 가게 후보를 찾을 때만 쓴다.
+    --
+    -- 원래는 사진 파일의 EXIF 에서 그때그때 다시 읽었다. 그런데 파일은 방 참여자에게
+    -- 그대로 내려가므로, 집에서 찍은 사진이면 집 위치가 함께 건너갔다.
+    -- 그래서 저장할 때 파일에서는 지우고, 좌표는 여기에만 남긴다.
+    -- 여기 있는 값은 화면에 내보내지 않는다.
+    --
+    -- DECIMAL(10, 7) — place 의 좌표와 같은 정밀도다.
+    -- NULL 이면 위치 태그 없이 찍은 사진이다. 이름으로 검색하면 된다.
+    latitude    DECIMAL(10, 7) NULL                    COMMENT '촬영 위치 위도 (파일에서는 지운다)',
+    longitude   DECIMAL(10, 7) NULL                    COMMENT '촬영 위치 경도 (파일에서는 지운다)',
+
     created_at  DATETIME      NOT NULL                 COMMENT '업로드 시각',
     updated_at  DATETIME      NOT NULL                 COMMENT '마지막 수정 시각',
 

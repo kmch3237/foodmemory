@@ -186,18 +186,23 @@ public class PostServiceImpl implements PostService {
     /**
      * 게시물에 붙은 첫 사진의 좌표로 주변 장소를 찾는다.
      *
-     * 좌표를 DB 에 따로 저장해두지 않았지만 문제되지 않는다.
-     * 사진 파일 자체가 원본이므로 필요할 때 다시 읽으면 된다.
-     * 게시물에 좌표를 복사해두면 사진을 바꿨을 때 어긋나게 된다.
+     * 좌표는 게시물이 아니라 사진(photo.latitude)에 있다.
+     * 게시물에 복사해두면 사진을 바꿨을 때 어긋나게 된다.
+     * 예전에는 파일의 EXIF 에서 다시 읽었지만, 이제 파일에서는 위치를 지우므로 DB 에서 읽는다.
      */
     @Override
     @Transactional(readOnly = true)
-    public PlaceSearchResult findPlaceCandidates(Long postId, String keyword) {
+    public PlaceSearchResult findPlaceCandidates(Long postId, String keyword, Long loginMemberId) {
+        // 누가 부르는지부터 본다. 결과가 좌표에서 가까운 순이라 남이 보면 찍은 곳이 드러난다.
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new NotFoundException("존재하지 않는 게시물입니다."));
+        requireOwner(post, loginMemberId);
+
         if (!kakaoLocalClient.isConfigured()) {
             throw new IllegalStateException("지도 API 키가 설정되지 않았습니다.");
         }
 
-        PhotoMetadata metadata = readFirstPhotoMetadata(postId);
+        PhotoMetadata metadata = readFirstPhotoLocation(postId);
         boolean hasLocation = metadata.hasLocation();
 
         // 사용자가 이름을 입력했으면 그쪽이 우선이다.
@@ -222,17 +227,18 @@ public class PostServiceImpl implements PostService {
     }
 
     /**
-     * 게시물의 첫 사진에서 EXIF 를 읽는다. 사진이 없으면 빈 값을 돌려준다.
+     * 게시물의 첫 사진에 남겨둔 좌표를 꺼낸다. 사진이 없으면 빈 값을 돌려준다.
      *
      * 사진이 없는 것도 예외로 다루지 않는다. 좌표가 없는 것과 마찬가지로
      * '이름으로 검색하면 되는' 상황이기 때문이다.
      */
-    private PhotoMetadata readFirstPhotoMetadata(Long postId) {
+    private PhotoMetadata readFirstPhotoLocation(Long postId) {
         List<Photo> photos = photoRepository.findByPostPostIdOrderByPhotoIdAsc(postId);
-        if (photos.isEmpty()) {
+        if (photos.isEmpty() || !photos.get(0).hasLocation()) {
             return PhotoMetadata.empty();
         }
-        return exifReader.read(fileStorage.resolve(photos.get(0).getFilePath()));
+        Photo first = photos.get(0);
+        return new PhotoMetadata(null, first.getLatitude(), first.getLongitude());
     }
 
     /**
@@ -258,7 +264,7 @@ public class PostServiceImpl implements PostService {
          *   장소는 여러 게시물이 공유하는 데이터라, 한 사람이 넣은 거짓 정보를
          *   나중에 같은 곳을 고른 다른 사람이 보게 된다.
          */
-        PlaceCandidate selected = findPlaceCandidates(postId, keyword).places().stream()
+        PlaceCandidate selected = findPlaceCandidates(postId, keyword, loginMemberId).places().stream()
                 .filter(candidate -> candidate.kakaoPlaceId().equals(kakaoPlaceId))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("선택한 장소를 찾을 수 없습니다."));
@@ -325,14 +331,20 @@ public class PostServiceImpl implements PostService {
             if (file.isEmpty()) {
                 continue;
             }
-            String storedPath = fileStorage.store(file);        // 디스크에 저장하고 경로를 받는다
+            // 좌표는 저장하기 '전에' 읽는다. 저장하면서 파일에서 위치를 지우기 때문이다.
+            // 첫 사진은 위에서 이미 읽었으므로 다시 읽지 않는다.
+            PhotoMetadata location = (file == first) ? metadata : exifReader.read(file);
+
+            String storedPath = fileStorage.store(file);        // 디스크에 저장하고(위치는 지우고) 경로를 받는다
 
             // 목록 화면에서 쓸 작은 사본을 함께 만든다.
             // 못 만들면 null 이 돌아오고, 그때는 목록에서 원본을 그대로 쓴다.
             // 사본을 못 만들었다고 사용자의 기록을 실패시키지는 않는다.
             String thumbPath = fileStorage.storeThumbnail(storedPath);
 
-            photoRepository.save(Photo.create(post, storedPath, thumbPath)); // DB 에는 경로만 저장한다
+            Photo photo = Photo.create(post, storedPath, thumbPath);   // DB 에는 경로를 저장한다
+            photo.recordLocation(location.latitude(), location.longitude());
+            photoRepository.save(photo);
         }
 
         return post.getPostId();

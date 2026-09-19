@@ -13,6 +13,8 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
+
 /**
  * 사진 — photo 테이블과 매핑된다.
  *
@@ -64,6 +66,21 @@ public class Photo extends BaseEntity {
     @Column(length = 500)
     private String thumbPath;
 
+    /**
+     * 사진을 찍은 곳의 좌표. 근처 가게 후보를 찾을 때만 쓴다.
+     *
+     * 원래는 필요할 때 파일의 EXIF 에서 다시 읽었다. 그런데 그 파일은 방 참여자에게
+     * 그대로 내려가므로 찍은 곳(집일 수도 있다)이 함께 건너갔다.
+     * 이제 파일에서는 지우고(ExifStripper) 좌표는 여기에만 둔다. 화면에는 내보내지 않는다.
+     *
+     * 위치 태그 없이 찍었으면 NULL 이다.
+     */
+    @Column(precision = 10, scale = 7)
+    private BigDecimal latitude;
+
+    @Column(precision = 10, scale = 7)
+    private BigDecimal longitude;
+
     public static Photo create(Post post, String filePath, String thumbPath) {
         Photo photo = new Photo();
         photo.post = post;
@@ -81,6 +98,24 @@ public class Photo extends BaseEntity {
      */
     public String getDisplayPath() {
         return thumbPath != null ? thumbPath : filePath;
+    }
+
+    /**
+     * 파일에서 읽은 좌표를 남긴다. 둘 중 하나라도 없으면 남기지 않는다.
+     *
+     * 업로드와 이미 쌓인 사진의 보정(LocationScrubBackfill)이 모두 이 길을 지난다.
+     * 이미 있으면 덮어쓰지 않는다. 파일에서 지운 뒤에 다시 읽으면 빈 값이기 때문이다.
+     */
+    public void recordLocation(BigDecimal latitude, BigDecimal longitude) {
+        if (latitude == null || longitude == null || this.latitude != null) {
+            return;
+        }
+        this.latitude = latitude;
+        this.longitude = longitude;
+    }
+
+    public boolean hasLocation() {
+        return latitude != null && longitude != null;
     }
 
     /** 나중에 사본을 만들어 붙일 때 쓴다. 이미 있으면 덮어쓰지 않는다. */

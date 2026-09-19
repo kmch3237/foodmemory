@@ -19,6 +19,9 @@ public interface FileStorage {
      * 예) 2026/08/3f8c1e9a4b2d.jpg
      *
      * 도메인이나 폴더 위치는 포함하지 않는다. 그건 환경마다 다르기 때문이다.
+     *
+     * 저장하면서 사진 속 위치(EXIF)를 지운다. 파일이 방 참여자에게 그대로 내려가기 때문이다.
+     * 좌표가 필요하면 이것을 부르기 전에 읽어둔다.
      */
     String store(MultipartFile file);
 

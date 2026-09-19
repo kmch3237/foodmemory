@@ -67,8 +67,11 @@ public interface PostService {
      *   좌표가 없는 것은 오류가 아니라 흔한 상황이다.
      *   iOS Safari 는 업로드할 때 GPS 를 지우고, 메신저를 거친 사진도 마찬가지다.
      *   화면이 검색창을 보여줄 수 있어야 하므로 결과로 돌려준다.
+     *
+     * 게시물을 올린 사람만 부를 수 있다. 결과가 사진 좌표에서 가까운 순이라,
+     * 남이 부르면 그 사진을 찍은 곳을 짐작할 수 있다.
      */
-    PlaceSearchResult findPlaceCandidates(Long postId, String keyword);
+    PlaceSearchResult findPlaceCandidates(Long postId, String keyword, Long loginMemberId);
 
     /**
      * 후보 중 하나를 골라 게시물에 연결한다.

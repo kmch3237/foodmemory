@@ -285,7 +285,7 @@ public class PostController {
                                    Model model) {
         model.addAttribute("loginMember", loginMember);
         model.addAttribute("postId", postId);
-        model.addAttribute("result", postService.findPlaceCandidates(postId, keyword));
+        model.addAttribute("result", postService.findPlaceCandidates(postId, keyword, loginMember.memberId()));
         return "post/place-select";
     }
 

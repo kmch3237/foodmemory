@@ -43,4 +43,12 @@ public interface PhotoRepository extends JpaRepository<Photo, Long> {
      */
     @Query("select ph from Photo ph where ph.thumbPath is null order by ph.photoId asc")
     List<Photo> findByThumbPathIsNull(Pageable pageable);
+
+    /**
+     * photoId 가 lastId 보다 큰 사진을 순서대로 가져온다. 전체를 조금씩 끊어 훑을 때 쓴다.
+     *
+     * 몇 번째 페이지(offset)가 아니라 '마지막으로 본 번호 다음부터' 로 끊는 이유:
+     *   훑는 도중에 사진이 올라오거나 지워져도 빠지거나 두 번 보는 사진이 없다.
+     */
+    List<Photo> findByPhotoIdGreaterThanOrderByPhotoIdAsc(Long lastId, Pageable pageable);
 }
