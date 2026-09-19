@@ -52,10 +52,12 @@
             <label>
                 <input type="checkbox" name="agreeTerms" value="true" required>
                 <strong>[필수]</strong> 이용약관에 동의합니다
+                <a class="link agree-view" th:href="@{/terms}" target="_blank" rel="noopener">보기</a>
             </label>
             <label>
                 <input type="checkbox" name="agreePrivacy" value="true" required>
                 <strong>[필수]</strong> 개인정보 처리방침에 동의합니다
+                <a class="link agree-view" th:href="@{/privacy}" target="_blank" rel="noopener">보기</a>
             </label>
         </div>
 

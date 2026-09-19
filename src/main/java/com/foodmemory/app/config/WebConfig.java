@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
+import org.springframework.web.servlet.config.annotation.ViewControllerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.nio.file.Paths;
@@ -42,6 +43,20 @@ public class WebConfig implements WebMvcConfigurer {
 
         registry.addResourceHandler(urlPrefix + "/**")   // /uploads/** 로 들어오는 요청을
                 .addResourceLocations(location);          // 이 폴더에서 찾는다
+    }
+
+    /**
+     * 약관과 개인정보 처리방침. 주소와 화면을 바로 잇는다.
+     *
+     * 넘길 데이터가 없는 고정 문서라 컨트롤러를 따로 만들지 않는다.
+     * 메서드 하나가 "이 템플릿을 보여줘" 한 줄뿐이라면, 그 한 줄은 여기서 쓰는 편이 짧다.
+     *
+     * 가입하기 전에 읽어야 하는 문서라 아래 로그인 검사 목록에 넣지 않는다.
+     */
+    @Override
+    public void addViewControllers(ViewControllerRegistry registry) {
+        registry.addViewController("/terms").setViewName("legal/terms");
+        registry.addViewController("/privacy").setViewName("legal/privacy");
     }
 
     /** @Login 파라미터를 채워줄 리졸버를 Spring 에 알린다. 등록하지 않으면 그냥 무시된다. */

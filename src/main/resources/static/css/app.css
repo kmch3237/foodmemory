@@ -340,6 +340,16 @@ body {
 
 .box h2 { font-size: 18px; margin: 0 0 12px; }
 
+/* ── 약관·처리방침 ───────────────────────────────────────── */
+/* 조항이 줄줄이 이어지는 긴 글이라, 제목 위를 넉넉히 띄워 어디서 끊기는지 보이게 한다 */
+.legal h2 { font-size: 18px; margin: 28px 0 8px; }
+.legal p,
+.legal li { line-height: 1.7; }
+.legal ul { padding-left: 20px; margin: 6px 0 12px; }
+
+/* 가입 화면의 동의 줄 끝에 붙는 '보기' 링크 */
+.agree-view { font-size: 15px; margin-left: 4px; }
+
 /* ── 입력 ─────────────────────────────────────────────────── */
 .field { display: block; margin-bottom: 16px; }
 .field > span { display: block; margin-bottom: 6px; }
