@@ -35,6 +35,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -463,7 +464,45 @@ public class PostServiceImpl implements PostService {
 
         requireOwner(post, loginMemberId);
 
-        List<Photo> photos = photoRepository.findByPostPostIdOrderByPhotoIdAsc(postId);
+        List<String> filePaths = deleteRows(post);
+        deleteFilesAfterCommit(filePaths);
+
+        log.info("게시물 삭제: postId={}, 파일 {}개", postId, filePaths.size());
+    }
+
+    /**
+     * 탈퇴할 때 그 회원의 게시물을 전부 지운다.
+     *
+     * 게시물 하나를 지우는 delete() 와 같은 순서(deleteRows)를 쓴다.
+     * 탈퇴용 삭제를 따로 짜면, 나중에 게시물에 딸린 것이 하나 늘었을 때
+     * 한쪽만 고치고 다른 쪽은 FK 오류로 멈추는 일이 생긴다.
+     *
+     * 권한은 확인하지 않는다. 본인 확인은 탈퇴를 받는 AuthService 가 이미 끝냈다.
+     */
+    @Override
+    @Transactional
+    public void deleteAllOf(Long memberId) {
+        List<Post> posts = postRepository.findByMemberMemberId(memberId);
+
+        List<String> filePaths = new ArrayList<>();
+        for (Post post : posts) {
+            filePaths.addAll(deleteRows(post));
+        }
+
+        // 파일은 게시물마다가 아니라 한 번에 모아서, 탈퇴 전체가 커밋된 뒤에 지운다.
+        // 중간에 실패해 탈퇴가 통째로 롤백되면 파일도 그대로 남아야 한다.
+        deleteFilesAfterCommit(filePaths);
+
+        log.info("회원 게시물 전체 삭제: memberId={}, 게시물 {}건, 파일 {}개",
+                memberId, posts.size(), filePaths.size());
+    }
+
+    /**
+     * 게시물 하나와 거기 딸린 행을 지우고, 지워야 할 파일 경로를 돌려준다.
+     * 파일은 여기서 지우지 않는다. 커밋이 끝난 뒤에 지워야 하기 때문이다(deleteFilesAfterCommit).
+     */
+    private List<String> deleteRows(Post post) {
+        List<Photo> photos = photoRepository.findByPostPostIdOrderByPhotoIdAsc(post.getPostId());
 
         // 파일 경로를 미리 챙겨둔다. 행을 지운 뒤에는 어떤 파일이었는지 알 수 없다.
         //
@@ -476,15 +515,12 @@ public class PostServiceImpl implements PostService {
 
         // 댓글도 post 를 FK 로 참조한다. 남겨두면 게시물 삭제를 DB 가 거부한다.
         // 사진과 마찬가지로 자식부터 정리한다.
-        commentRepository.deleteByPostPostId(postId);
+        commentRepository.deleteByPostPostId(post.getPostId());
 
         photoRepository.deleteAll(photos);
         postRepository.delete(post);
 
-        deleteFilesAfterCommit(filePaths);
-
-        // 파일 개수가 아니라 사진 장수를 남긴다. 한 장에 파일이 둘일 수 있어서다.
-        log.info("게시물 삭제: postId={}, 사진 {}장(파일 {}개)", postId, photos.size(), filePaths.size());
+        return filePaths;
     }
 
     /**

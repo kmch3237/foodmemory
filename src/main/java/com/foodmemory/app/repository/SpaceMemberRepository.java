@@ -27,4 +27,7 @@ public interface SpaceMemberRepository extends JpaRepository<SpaceMember, Long> 
     List<Member> findMembersOf(@Param("spaceId") Long spaceId);
 
     long countBySpaceSpaceId(Long spaceId);
+
+    /** 한 회원의 참여 기록 전부. 탈퇴할 때 방마다 정리하는 데 쓴다. */
+    List<SpaceMember> findByMemberMemberId(Long memberId);
 }

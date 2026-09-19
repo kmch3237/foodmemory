@@ -1,8 +1,10 @@
 package com.foodmemory.app.auth;
 
+import com.foodmemory.app.repository.MemberRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.servlet.HandlerInterceptor;
 
@@ -20,7 +22,10 @@ import java.nio.charset.StandardCharsets;
  * preHandle 이 false 를 돌려주면 요청은 여기서 끝난다. 컨트롤러는 호출되지 않는다.
  */
 @Slf4j
+@RequiredArgsConstructor
 public class LoginCheckInterceptor implements HandlerInterceptor {
+
+    private final MemberRepository memberRepository;
 
     @Override
     public boolean preHandle(HttpServletRequest request,
@@ -29,8 +34,27 @@ public class LoginCheckInterceptor implements HandlerInterceptor {
 
         HttpSession session = request.getSession(false);
 
-        if (session != null && session.getAttribute(SessionConst.LOGIN_MEMBER) != null) {
-            return true;   // 통과
+        if (session != null
+                && session.getAttribute(SessionConst.LOGIN_MEMBER) instanceof LoginMember loginMember) {
+
+            /*
+             * 세션이 있어도 회원이 아직 있는지 한 번 더 본다.
+             *
+             * 세션에는 로그인하던 순간의 회원 정보가 복사돼 30일 동안 남는다.
+             * 폰에서 탈퇴해도 PC 브라우저의 세션은 그대로라, 그 상태로 사진을 올리면
+             * 없는 회원을 가리키는 기록을 만들려다 500 오류가 난다.
+             *
+             * 탈퇴할 때 그 회원의 세션을 전부 찾아 지우는 방법도 있다.
+             * 다만 Redis 저장 방식을 바꾸고 서버의 Redis 설정까지 손대야 하고,
+             * 이미 발급된 세션에는 통하지 않는다.
+             * 기본키 조회 한 번은 이 규모에서 부담이 없고, 어떤 세션이든 똑같이 걸러낸다.
+             */
+            if (memberRepository.existsById(loginMember.memberId())) {
+                return true;   // 통과
+            }
+
+            log.info("탈퇴한 회원의 세션을 끊습니다: memberId={}", loginMember.memberId());
+            session.invalidate();
         }
 
         String requestUri = request.getRequestURI();

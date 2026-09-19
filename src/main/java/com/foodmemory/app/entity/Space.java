@@ -77,6 +77,16 @@ public class Space extends BaseEntity {
         this.inviteCode = newCode;
     }
 
+    /**
+     * 방장을 바꾼다. 방을 만든 사람이 탈퇴할 때 남은 참여자에게 넘기는 데 쓴다.
+     *
+     * 넘기지 않고 방을 지우면 다른 가족이 올린 기록까지 함께 사라진다.
+     * 남은 사람 입장에서는 자기가 한 일도 없이 기록을 잃는 셈이다.
+     */
+    public void handOverTo(Member newOwner) {
+        this.owner = newOwner;
+    }
+
     public boolean isOwnedBy(Long memberId) {
         return owner.getMemberId().equals(memberId);
     }

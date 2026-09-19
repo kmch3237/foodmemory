@@ -47,6 +47,51 @@
         </p>
     </div>
 
+    <!--
+      탈퇴.
+
+      접어둔 이유: 계정 화면에 올 때마다 눈에 띌 필요는 없다.
+      찾는 사람은 찾을 수 있고, 지나가다 누를 일은 없게 한다.
+      실패해서 돌아왔을 때는 펼친 채로 보여 무엇이 틀렸는지 바로 보이게 한다.
+
+      본인 확인은 두 갈래다(AuthService.withdraw).
+        비밀번호가 있는 회원  → 비밀번호
+        소셜로만 가입한 회원  → '탈퇴' 라고 직접 입력
+    -->
+    <details class="box sketch section-gap" th:open="${withdrawError != null}">
+        <summary>회원 탈퇴</summary>
+
+        <p>탈퇴하면 아래 내용이 <strong>바로 지워지고 되돌릴 수 없습니다.</strong></p>
+        <ul class="withdraw-list">
+            <li>회원 정보와 연결된 로그인 수단</li>
+            <li>내가 올린 모든 기록과 사진 (방에 올린 것 포함)</li>
+            <li>내가 단 댓글, 그리고 내 기록에 달린 댓글</li>
+        </ul>
+        <p class="hint">
+            내가 만든 방에 다른 사람이 있으면, 가장 먼저 들어온 사람이 방장이 됩니다.
+            다른 사람이 올린 기록은 그대로 남습니다.
+            백업에 남은 사본은 최대 30일 뒤 지워집니다.
+        </p>
+
+        <div class="msg err" th:if="${withdrawError}" th:text="${withdrawError}">오류</div>
+
+        <form th:action="@{/account/withdraw}" method="post"
+              onsubmit="return confirm('정말 탈퇴할까요? 모든 기록이 지워지며 되돌릴 수 없습니다.');">
+
+            <label class="field" th:if="${hasPassword}">
+                <span>비밀번호 확인</span>
+                <input type="password" name="password" required autocomplete="current-password">
+            </label>
+
+            <label class="field" th:unless="${hasPassword}">
+                <span>확인을 위해 <strong>탈퇴</strong> 라고 입력해주세요</span>
+                <input type="text" name="confirmText" required autocomplete="off">
+            </label>
+
+            <button type="submit" class="btn wide">탈퇴하기</button>
+        </form>
+    </details>
+
     </div>
 </div>
 

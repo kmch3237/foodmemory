@@ -29,4 +29,14 @@ public interface SpaceService {
 
     /** 이 사람이 그 공간의 참여자인지. 게시물 접근 권한 판단에 쓴다. */
     boolean isMember(Long spaceId, Long memberId);
+
+    /**
+     * 탈퇴하는 회원을 모든 방에서 뺀다.
+     *
+     * 그 사람이 만든 방은 남은 참여자 중 가장 먼저 들어온 사람에게 넘긴다.
+     * 남은 사람이 없으면 방을 지운다.
+     *
+     * 그 사람이 방에 올린 게시물은 여기서 다루지 않는다. 먼저 PostService.deleteAllOf 로 지운다.
+     */
+    void leaveAll(Long memberId);
 }

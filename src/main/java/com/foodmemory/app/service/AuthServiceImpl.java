@@ -10,6 +10,7 @@ import com.foodmemory.app.dto.LinkedIdentity;
 import com.foodmemory.app.entity.Member;
 import com.foodmemory.app.entity.MemberIdentity;
 import com.foodmemory.app.entity.Provider;
+import com.foodmemory.app.repository.CommentRepository;
 import com.foodmemory.app.repository.MemberIdentityRepository;
 import com.foodmemory.app.repository.MemberRepository;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -32,6 +34,9 @@ public class AuthServiceImpl implements AuthService {
     private final MemberIdentityRepository identityRepository;
     private final PasswordEncoder passwordEncoder;
     private final OAuthClients oAuthClients;
+    private final PostService postService;
+    private final SpaceService spaceService;
+    private final CommentRepository commentRepository;
 
     /* ── 자체 가입 / 로그인 ───────────────────────────────────── */
 
@@ -215,6 +220,67 @@ public class AuthServiceImpl implements AuthService {
                         describe(identity),
                         identity.getCreatedAt()))
                 .toList();
+    }
+
+    /* ── 탈퇴 ────────────────────────────────────────────────── */
+
+    /** 소셜로만 가입한 회원이 탈퇴를 확인할 때 직접 쳐야 하는 말. */
+    private static final String WITHDRAW_CONFIRM_TEXT = "탈퇴";
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean hasPassword(Long memberId) {
+        return identityRepository.existsByMemberMemberIdAndProvider(memberId, Provider.LOCAL);
+    }
+
+    /**
+     * 지우는 순서는 FK 가 정한다. 남을 가리키는 쪽(자식)부터 지워야 DB 가 거부하지 않는다.
+     *
+     *   1. 내 게시물 (딸린 댓글·사진 포함, 파일은 커밋 뒤)  ← post 가 member·space 를 가리킨다
+     *   2. 내가 남의 게시물에 단 댓글                        ← comment 가 member 를 가리킨다
+     *   3. 방 참여 · 방장 넘기기 · 빈 방 삭제                ← space_member, space.owner_id
+     *   4. 로그인 수단                                      ← member_identity 가 member 를 가리킨다
+     *   5. 회원
+     *
+     * 1 이 3 보다 먼저인 이유: 혼자 있던 방을 지우려면 그 방의 게시물이 먼저 없어야 한다.
+     *
+     * 전부 한 트랜잭션이다. 중간에 하나라도 실패하면 처음 상태로 돌아간다.
+     * 게시물만 지워지고 회원은 남는 반쪽 탈퇴가 가장 나쁘다. 다시 시도할 수도 없다.
+     */
+    @Override
+    @Transactional
+    public void withdraw(Long memberId, String password, String confirmText) {
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new NotFoundException("존재하지 않는 회원입니다."));
+
+        verifyWithdrawal(memberId, password, confirmText);
+
+        postService.deleteAllOf(memberId);
+        commentRepository.deleteByMemberMemberId(memberId);
+        spaceService.leaveAll(memberId);
+        identityRepository.deleteAll(identityRepository.findByMemberMemberId(memberId));
+        memberRepository.delete(member);
+
+        log.info("탈퇴 완료: memberId={}", memberId);
+    }
+
+    private void verifyWithdrawal(Long memberId, String password, String confirmText) {
+        Optional<MemberIdentity> local = identityRepository.findByMemberMemberId(memberId).stream()
+                .filter(identity -> identity.getProvider() == Provider.LOCAL)
+                .findFirst();
+
+        if (local.isPresent()) {
+            // 비밀번호가 있는 사람에게 "탈퇴" 입력을 대신 받지 않는다.
+            // 그러면 비밀번호를 모르는 사람도 탈퇴시킬 수 있게 된다.
+            if (password == null || !passwordEncoder.matches(password, local.get().getPasswordHash())) {
+                throw new IllegalArgumentException("비밀번호가 맞지 않습니다.");
+            }
+            return;
+        }
+
+        if (confirmText == null || !confirmText.trim().equals(WITHDRAW_CONFIRM_TEXT)) {
+            throw new IllegalArgumentException("확인 칸에 '" + WITHDRAW_CONFIRM_TEXT + "' 라고 입력해주세요.");
+        }
     }
 
     /** 화면에 보여줄 설명. 자체 로그인만 아이디(이메일)를 함께 보여준다. */

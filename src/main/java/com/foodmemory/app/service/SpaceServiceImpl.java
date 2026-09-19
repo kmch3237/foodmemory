@@ -181,6 +181,38 @@ public class SpaceServiceImpl implements SpaceService {
                 && spaceMemberRepository.existsBySpaceSpaceIdAndMemberMemberId(spaceId, memberId);
     }
 
+    @Override
+    @Transactional
+    public void leaveAll(Long memberId) {
+        for (SpaceMember participation : spaceMemberRepository.findByMemberMemberId(memberId)) {
+            Space space = participation.getSpace();
+
+            // 참여 기록을 먼저 지운다. 참여 기록이 남아 있으면 방을 지울 때 DB 가 거부한다.
+            spaceMemberRepository.delete(participation);
+
+            if (!space.isOwnedBy(memberId)) {
+                continue;   // 남이 만든 방이면 빠지기만 하면 된다
+            }
+
+            // 방장이 나가면 space.owner_id 가 없는 회원을 가리키게 된다. 그 전에 정리한다.
+            // findMembersOf 는 들어온 순서라 첫 사람이 가장 오래 함께한 사람이다.
+            // 탈퇴하는 사람을 한 번 더 걸러내는 것은, 위의 삭제가 아직 DB 에 반영되기 전에
+            // 조회될 수도 있다는 가정에 기대지 않기 위해서다.
+            List<Member> remaining = spaceMemberRepository.findMembersOf(space.getSpaceId()).stream()
+                    .filter(member -> !member.getMemberId().equals(memberId))
+                    .toList();
+
+            if (remaining.isEmpty()) {
+                spaceRepository.delete(space);
+                log.info("탈퇴로 빈 공간 삭제: spaceId={}", space.getSpaceId());
+            } else {
+                space.handOverTo(remaining.get(0));
+                log.info("탈퇴로 방장 넘김: spaceId={}, newOwnerId={}",
+                        space.getSpaceId(), remaining.get(0).getMemberId());
+            }
+        }
+    }
+
     /* ── 공통 ────────────────────────────────────────────────── */
 
     private void requireMember(Long spaceId, Long memberId) {

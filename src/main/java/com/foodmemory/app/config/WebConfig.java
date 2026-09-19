@@ -2,6 +2,7 @@ package com.foodmemory.app.config;
 
 import com.foodmemory.app.auth.LoginArgumentResolver;
 import com.foodmemory.app.auth.LoginCheckInterceptor;
+import com.foodmemory.app.repository.MemberRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
@@ -28,13 +29,16 @@ public class WebConfig implements WebMvcConfigurer {
     private final String uploadPath;
     private final String urlPrefix;
     private final LoginArgumentResolver loginArgumentResolver;
+    private final MemberRepository memberRepository;
 
     public WebConfig(@Value("${app.upload.path}") String uploadPath,
                      @Value("${app.upload.url-prefix}") String urlPrefix,
-                     LoginArgumentResolver loginArgumentResolver) {
+                     LoginArgumentResolver loginArgumentResolver,
+                     MemberRepository memberRepository) {
         this.uploadPath = uploadPath;
         this.urlPrefix = urlPrefix;
         this.loginArgumentResolver = loginArgumentResolver;
+        this.memberRepository = memberRepository;
     }
 
     @Override
@@ -84,7 +88,7 @@ public class WebConfig implements WebMvcConfigurer {
      */
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(new LoginCheckInterceptor())
+        registry.addInterceptor(new LoginCheckInterceptor(memberRepository))
                 .order(1)
                 .addPathPatterns(
                         "/posts",                  // 업로드 처리
@@ -96,7 +100,8 @@ public class WebConfig implements WebMvcConfigurer {
                         "/posts/*/place",          // 장소 지정
                         "/spaces",                 // 공간 목록·생성
                         "/spaces/**",              // 공간 화면·참여·초대 코드
-                        "/account"                 // 계정 설정
+                        "/account",                // 계정 설정
+                        "/account/**"              // 탈퇴
                 );
     }
 }

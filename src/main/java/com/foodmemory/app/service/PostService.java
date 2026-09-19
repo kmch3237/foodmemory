@@ -132,4 +132,11 @@ public interface PostService {
      *   판단을 서비스 안에 두면 어느 경로로 들어오든 같은 규칙이 적용된다.
      */
     void delete(Long postId, Long loginMemberId);
+
+    /**
+     * 한 회원의 게시물을 전부 지운다. 방에 올린 것도 포함한다. 탈퇴할 때만 쓴다.
+     *
+     * 사진 파일은 트랜잭션이 커밋된 뒤에 지운다. 탈퇴가 중간에 실패하면 파일도 남는다.
+     */
+    void deleteAllOf(Long memberId);
 }

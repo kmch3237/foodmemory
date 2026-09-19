@@ -45,4 +45,18 @@ public interface AuthService {
 
     /** 이 회원에게 연결된 로그인 수단 목록. 계정 화면에서 보여준다. */
     List<LinkedIdentity> findLinkedIdentities(Long memberId);
+
+    /** 탈퇴 확인을 비밀번호로 받을지. 이메일 로그인 수단이 있는 회원만 비밀번호가 있다. */
+    boolean hasPassword(Long memberId);
+
+    /**
+     * 탈퇴. 회원 정보와 그 사람이 남긴 것을 모두 지운다.
+     *
+     * 본인 확인:
+     *   비밀번호가 있는 회원 → password 가 맞아야 한다
+     *   소셜로만 가입한 회원 → confirmText 가 "탈퇴" 여야 한다
+     * 로그인 상태만으로 받지 않는 이유는, 세션이 30일 유지되기 때문이다.
+     * 로그인된 폰을 잠깐 집어든 사람이 되돌릴 수 없는 일을 하게 두지 않는다.
+     */
+    void withdraw(Long memberId, String password, String confirmText);
 }

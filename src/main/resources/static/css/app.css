@@ -347,6 +347,11 @@ body {
 .legal li { line-height: 1.7; }
 .legal ul { padding-left: 20px; margin: 6px 0 12px; }
 
+/* 계정 화면의 탈퇴 칸. 평소엔 접혀 있다 */
+details.box > summary { cursor: pointer; font-size: 18px; }
+details.box[open] > summary { margin-bottom: 12px; }
+.withdraw-list { padding-left: 20px; margin: 6px 0 12px; line-height: 1.7; }
+
 /* 가입 화면의 동의 줄 끝에 붙는 '보기' 링크 */
 .agree-view { font-size: 15px; margin-left: 4px; }
 

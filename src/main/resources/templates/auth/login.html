@@ -12,6 +12,8 @@
     <p class="section">로그인</p>
 
     <div class="msg err" th:if="${error}" th:text="${error}">오류 메시지</div>
+    <!-- 탈퇴를 마치면 이리로 온다(AuthController.withdraw). 세션을 버린 뒤라 주소로 알린다 -->
+    <div class="msg" th:if="${param.withdrawn != null}">탈퇴가 끝났습니다. 그동안 이용해주셔서 고맙습니다.</div>
 
     <form th:action="@{/login}" method="post">
         <!--

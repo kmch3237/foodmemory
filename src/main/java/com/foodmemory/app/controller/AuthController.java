@@ -123,9 +123,45 @@ public class AuthController {
      */
     @GetMapping("/account")
     public String account(@Login LoginMember loginMember, Model model) {
+        fillAccount(loginMember, model);
+        return "auth/account";
+    }
+
+    /**
+     * 탈퇴.
+     *
+     * 다른 사이트가 이 주소로 폼을 몰래 보내는 공격(CSRF)은 세션 쿠키의 SameSite=Lax 가 막는다.
+     * 다른 사이트에서 시작된 POST 에는 쿠키가 실리지 않아 로그인하지 않은 요청이 된다.
+     * 거기에 더해 비밀번호나 '탈퇴' 입력을 받으므로, 버튼 한 번으로는 일어나지 않는다.
+     *
+     * 끝나면 세션을 버린다. 지워진 회원의 정보를 세션에 남겨둘 이유가 없다.
+     * 다른 기기에 남은 세션은 LoginCheckInterceptor 가 다음 요청에서 끊는다.
+     */
+    @PostMapping("/account/withdraw")
+    public String withdraw(@Login LoginMember loginMember,
+                           @RequestParam(required = false) String password,
+                           @RequestParam(required = false) String confirmText,
+                           HttpServletRequest request,
+                           Model model) {
+        try {
+            authService.withdraw(loginMember.memberId(), password, confirmText);
+        } catch (IllegalArgumentException e) {
+            fillAccount(loginMember, model);
+            model.addAttribute("withdrawError", e.getMessage());
+            return "auth/account";
+        }
+
+        HttpSession session = request.getSession(false);
+        if (session != null) {
+            session.invalidate();
+        }
+        return "redirect:/login?withdrawn";
+    }
+
+    private void fillAccount(LoginMember loginMember, Model model) {
         model.addAttribute("loginMember", loginMember);
         model.addAttribute("identities", authService.findLinkedIdentities(loginMember.memberId()));
-        return "auth/account";
+        model.addAttribute("hasPassword", authService.hasPassword(loginMember.memberId()));
     }
 
     /** 세션에서 가입 대기 정보를 꺼낸다. 없으면 null. */

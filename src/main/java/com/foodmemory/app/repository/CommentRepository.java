@@ -49,4 +49,10 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
 
     /** 게시물을 지울 때 딸린 댓글부터 정리하는 데 쓴다. */
     void deleteByPostPostId(Long postId);
+
+    /**
+     * 한 회원이 단 댓글을 모두 지운다. 남의 게시물에 단 것까지 포함한다.
+     * 탈퇴할 때 쓴다. 남겨두면 comment.member_id 가 회원을 붙잡아 회원 삭제를 DB 가 거부한다.
+     */
+    void deleteByMemberMemberId(Long memberId);
 }

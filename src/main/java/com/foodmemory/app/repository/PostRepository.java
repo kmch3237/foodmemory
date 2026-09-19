@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface PostRepository extends JpaRepository<Post, Long> {
@@ -47,6 +48,12 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             where p.member.memberId = :memberId
             """)
     Slice<Post> findMyPosts(@Param("memberId") Long memberId, Pageable pageable);
+
+    /**
+     * 한 회원이 쓴 게시물 전부. 개인 기록과 방에 올린 기록을 가리지 않는다.
+     * 탈퇴할 때 하나도 빠짐없이 지우는 데 쓴다. 화면용이 아니라 페이징하지 않는다.
+     */
+    List<Post> findByMemberMemberId(Long memberId);
 
     /**
      * 공유 공간의 게시물 목록.
