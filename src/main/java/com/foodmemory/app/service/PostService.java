@@ -5,6 +5,7 @@ import com.foodmemory.app.dto.GallerySort;
 import com.foodmemory.app.dto.PostDetailResponse;
 import com.foodmemory.app.dto.PostEditForm;
 import com.foodmemory.app.dto.PlaceSearchResult;
+import org.springframework.core.io.Resource;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
@@ -60,7 +61,7 @@ public interface PostService {
     PostDetailResponse getDetail(Long postId, Long loginMemberId);
 
     /**
-     * 사진 한 장을 볼 수 있는지 확인하고, 볼 수 있으면 파일의 상대 경로를 돌려준다.
+     * 사진 한 장을 볼 수 있는지 확인하고, 볼 수 있으면 내보낼 파일을 돌려준다.
      *
      * 게시물과 똑같은 규칙을 쓴다. 사진은 게시물에 붙어 있으므로
      * '그 게시물을 볼 수 있으면 그 사진도 볼 수 있다' 가 된다.
@@ -69,10 +70,15 @@ public interface PostService {
      * 부르는 쪽이 검사를 빠뜨렸을 때 사진이 그냥 나가버리기 때문이다.
      * 막는 쪽은 실수했을 때 막히는 편이 안전하다.
      *
+     * 경로가 아니라 파일을 돌려주는 이유:
+     *   경로를 주면 받는 쪽(컨트롤러)이 그걸 실제 파일로 바꾸고 읽을 수 있는지
+     *   확인해야 한다. 그건 화면의 일이 아니라 저장소를 아는 층의 일이다.
+     *   컨트롤러는 받은 것을 응답에 싣기만 하면 되게 한다.
+     *
      * @param thumbnail true 면 작은 사본(없으면 원본), false 면 원본
-     * @return 저장된 상대 경로. 예) 2026/08/3f8c1e9a4b2d.jpg
+     * @return 읽을 수 있는 파일. DB 에 경로는 있는데 파일이 없으면 NotFoundException
      */
-    String getViewablePhotoPath(Long photoId, Long loginMemberId, boolean thumbnail);
+    Resource getViewablePhoto(Long photoId, Long loginMemberId, boolean thumbnail);
 
     /**
      * 게시물에 연결할 장소 후보를 찾는다.

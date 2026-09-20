@@ -26,6 +26,8 @@ import com.foodmemory.app.repository.PostRepository;
 import com.foodmemory.app.repository.SpaceRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
@@ -34,6 +36,8 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -163,14 +167,17 @@ public class PostServiceImpl implements PostService {
     }
 
     /**
-     * 사진 한 장의 경로를 권한 확인과 함께 꺼낸다.
+     * 사진 한 장을 권한 확인과 함께 꺼낸다.
      *
      * 게시물을 볼 수 있으면 그 사진도 볼 수 있다. 규칙을 새로 만들지 않고
      * requireCanView 를 그대로 쓴다. 규칙이 두 벌이면 언젠가 어긋난다.
+     *
+     * 경로를 실제 파일로 바꾸는 일까지 여기서 한다. 저장소가 어떻게 생겼는지는
+     * 이 층이 아는 것이고(fileStorage), 컨트롤러는 몰라야 한다.
      */
     @Override
     @Transactional(readOnly = true)
-    public String getViewablePhotoPath(Long photoId, Long loginMemberId, boolean thumbnail) {
+    public Resource getViewablePhoto(Long photoId, Long loginMemberId, boolean thumbnail) {
         Photo photo = photoRepository.findWithPostById(photoId)
                 .orElseThrow(() -> new NotFoundException("존재하지 않는 사진입니다."));
 
@@ -178,7 +185,16 @@ public class PostServiceImpl implements PostService {
 
         // getDisplayPath() 는 작은 사본이 있으면 그것을, 없으면 원본을 준다.
         // HEIC 처럼 사본을 못 만든 사진도 목록에서 빈칸이 되지 않는다.
-        return thumbnail ? photo.getDisplayPath() : photo.getFilePath();
+        String relativePath = thumbnail ? photo.getDisplayPath() : photo.getFilePath();
+        Path file = fileStorage.resolve(relativePath);
+
+        // DB 에는 경로가 있는데 파일이 없는 경우. 백업에서 되살리다 어긋나면 생긴다.
+        // 여기서 분명히 끊지 않으면 0바이트 이미지가 나가 원인을 찾기 어려워진다.
+        if (!Files.isReadable(file)) {
+            throw new NotFoundException("사진 파일을 찾을 수 없습니다.");
+        }
+
+        return new FileSystemResource(file);
     }
 
     /**
