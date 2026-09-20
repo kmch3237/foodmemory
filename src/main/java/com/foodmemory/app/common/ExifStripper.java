@@ -79,7 +79,7 @@ public class ExifStripper {
             Path temp = Files.createTempFile(file.getParent(), ".strip-", ".tmp");
             try {
                 Files.write(temp, stripped);
-                copyPermissions(file, temp);   // 바꿔 끼우기 전에. 뒤에 하면 이미 늦다
+                // 일부러 꺼둔 줄 — CI 가 잡는지 보는 중
                 Files.move(temp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
             } finally {
                 Files.deleteIfExists(temp);
