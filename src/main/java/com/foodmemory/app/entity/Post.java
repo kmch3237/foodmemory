@@ -87,25 +87,27 @@ public class Post extends BaseEntity {
     @Column(nullable = false)
     private LocalDateTime eatenDate;
 
-    /**
-     * 공개 여부. MySQL 의 BOOLEAN(=TINYINT(1)) 과 매핑된다.
+    /*
+     * is_public 은 여기 있었지만 지웠다(2026-09-20).
      *
-     * Boolean 이 아니라 boolean 인 이유:
-     *   NOT NULL DEFAULT FALSE 라서 값이 없는 상태가 존재하지 않는다.
-     *   null 이 될 수 없는 값은 원시 타입으로 두는 편이 안전하다.
+     * 한 번도 읽히지 않는 칸이었다. 공개 범위는 실제로는 space 가 정한다.
+     *   space 가 null 이면 개인 기록 → 작성자만
+     *   space 가 있으면 공간 기록 → 그 공간의 참여자만
+     *
+     * 안 쓰는 칸을 남겨두면 다음 사람이 "공개 여부는 이걸 보면 되겠네" 하고
+     * 읽어버린다. 그 값은 늘 false 라서 조용히 틀린 판단을 한다.
+     * 쓰이지 않는 규칙은 지우는 편이 안전하다.
+     *
+     * 지우는 순서: 엔티티 먼저, 그다음 DB(ALTER TABLE post DROP COLUMN is_public).
+     * 반대로 하면 ddl-auto: validate 가 "엔티티가 찾는 칸이 없다" 며 앱을 안 띄운다.
      */
-    @Column(nullable = false)
-    private boolean isPublic;
 
     /**
      * 게시물을 작성한다.
      *
      * place 는 null 을 허용한다. 집에서 먹었거나 좌표가 없는 사진일 수 있다.
      * space 도 null 을 허용한다. null 이면 나만 보는 개인 기록이다.
-     *
-     * isPublic 은 항상 false 로 시작한다.
-     * 공유는 공간(space)으로 다루기로 해서 이 값은 아직 쓰이지 않는다.
-     * '누구나 볼 수 있는 공개 기록' 이 생기면 그때 쓴다.
+     * 공개 범위를 정하는 것은 이 space 하나뿐이다.
      */
     public static Post create(Member member, Space space, Place place,
                               String content, LocalDateTime eatenDate) {
@@ -115,7 +117,6 @@ public class Post extends BaseEntity {
         post.place = place;
         post.content = content;
         post.eatenDate = eatenDate;
-        post.isPublic = false;
         return post;
     }
 
