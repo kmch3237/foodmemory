@@ -4,6 +4,7 @@ import com.foodmemory.app.auth.Login;
 import com.foodmemory.app.auth.LoginMember;
 import com.foodmemory.app.auth.PendingSignUp;
 import com.foodmemory.app.auth.SessionConst;
+import com.foodmemory.app.common.TooManyAttemptsException;
 import com.foodmemory.app.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
@@ -198,7 +199,10 @@ public class AuthController {
             startSession(request, loginMember);
             return "redirect:" + safeRedirect(redirectUrl);
 
-        } catch (IllegalArgumentException e) {
+        // TooManyAttemptsException 도 같이 잡는다.
+        // 오류 화면으로 보내면 뒤로 가기를 눌러야 다시 시도할 수 있다.
+        // 비밀번호를 틀리는 것은 사고가 아니므로 그 자리에 안내만 띄운다.
+        } catch (IllegalArgumentException | TooManyAttemptsException e) {
             model.addAttribute("error", e.getMessage());
             model.addAttribute("email", email);
             model.addAttribute("redirectUrl", redirectUrl);

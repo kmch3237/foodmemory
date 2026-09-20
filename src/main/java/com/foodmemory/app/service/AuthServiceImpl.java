@@ -33,6 +33,7 @@ public class AuthServiceImpl implements AuthService {
     private final MemberRepository memberRepository;
     private final MemberIdentityRepository identityRepository;
     private final PasswordEncoder passwordEncoder;
+    private final LoginAttemptLimiter loginAttemptLimiter;
     private final OAuthClients oAuthClients;
     private final PostService postService;
     private final SpaceService spaceService;
@@ -89,23 +90,43 @@ public class AuthServiceImpl implements AuthService {
     public LoginMember loginLocal(String email, String password) {
         String normalizedEmail = normalizeEmail(email);
 
-        MemberIdentity identity = identityRepository
-                .findWithMember(Provider.LOCAL, normalizedEmail)
-                .orElseThrow(AuthServiceImpl::loginFailed);
+        // 비밀번호를 보기 전에 먼저 막힌 상태인지 본다.
+        // 순서가 반대면 막아둔 사람이 계속 두드릴 수 있어 막은 의미가 없다.
+        loginAttemptLimiter.requireNotBlocked(normalizedEmail);
 
-        // 소셜 수단에는 비밀번호가 없다. LOCAL 로 조회했으므로 여기 올 일은 없지만,
-        // null 을 그대로 비교에 넘기지 않도록 막아둔다.
-        if (identity.getPasswordHash() == null) {
-            throw loginFailed();
+        try {
+            MemberIdentity identity = identityRepository
+                    .findWithMember(Provider.LOCAL, normalizedEmail)
+                    .orElseThrow(AuthServiceImpl::loginFailed);
+
+            // 소셜 수단에는 비밀번호가 없다. LOCAL 로 조회했으므로 여기 올 일은 없지만,
+            // null 을 그대로 비교에 넘기지 않도록 막아둔다.
+            if (identity.getPasswordHash() == null) {
+                throw loginFailed();
+            }
+
+            // 저장된 해시와 입력값을 비교한다. 해시를 되돌리는 것이 아니라,
+            // 입력값을 저장된 해시 속 솔트로 다시 계산해 같은지 본다.
+            if (!passwordEncoder.matches(password, identity.getPasswordHash())) {
+                throw loginFailed();
+            }
+
+            loginAttemptLimiter.recordSuccess(normalizedEmail);
+            return LoginMember.from(identity.getMember());
+
+        } catch (IllegalArgumentException e) {
+            /*
+             * 실패한 세 갈래(없는 계정 / 비밀번호 없음 / 비밀번호 틀림)를 한자리에서 센다.
+             * 각 throw 앞에 한 줄씩 넣지 않는 이유는, 나중에 실패하는 갈래가
+             * 하나 더 생겼을 때 세는 것을 빠뜨리기 쉬워서다.
+             *
+             * 세고 나서 예외를 그대로 다시 던진다. 화면에 뜨는 문구는 지금까지와 같다.
+             * "이메일이 없다" 와 "비밀번호가 틀렸다" 를 구분해 알려주면
+             * 어느 이메일이 가입돼 있는지 알려주는 셈이 되기 때문이다.
+             */
+            loginAttemptLimiter.recordFailure(normalizedEmail);
+            throw e;
         }
-
-        // 저장된 해시와 입력값을 비교한다. 해시를 되돌리는 것이 아니라,
-        // 입력값을 저장된 해시 속 솔트로 다시 계산해 같은지 본다.
-        if (!passwordEncoder.matches(password, identity.getPasswordHash())) {
-            throw loginFailed();
-        }
-
-        return LoginMember.from(identity.getMember());
     }
 
     /* ── 소셜 로그인 ─────────────────────────────────────────── */
