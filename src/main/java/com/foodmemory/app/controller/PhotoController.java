@@ -2,11 +2,8 @@ package com.foodmemory.app.controller;
 
 import com.foodmemory.app.auth.Login;
 import com.foodmemory.app.auth.LoginMember;
-import com.foodmemory.app.common.FileStorage;
-import com.foodmemory.app.common.NotFoundException;
 import com.foodmemory.app.service.PostService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
@@ -16,8 +13,6 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Duration;
 
 /**
@@ -47,7 +42,6 @@ import java.time.Duration;
 public class PhotoController {
 
     private final PostService postService;
-    private final FileStorage fileStorage;
 
     /** 원본. 상세 화면에서 크게 볼 때 쓴다. */
     @GetMapping("/photos/{photoId}")
@@ -78,14 +72,7 @@ public class PhotoController {
     private ResponseEntity<Resource> send(Long photoId, LoginMember loginMember, boolean thumbnail) {
         Long memberId = (loginMember == null) ? null : loginMember.memberId();
 
-        String relativePath = postService.getViewablePhotoPath(photoId, memberId, thumbnail);
-        Path file = fileStorage.resolve(relativePath);
-
-        // DB 에는 경로가 있는데 파일이 없는 경우. 백업에서 되살리다 어긋나면 생긴다.
-        // 여기서 분명히 404 로 끊지 않으면 0바이트 이미지가 나가 원인을 찾기 어려워진다.
-        if (!Files.isReadable(file)) {
-            throw new NotFoundException("사진 파일을 찾을 수 없습니다.");
-        }
+        Resource file = postService.getViewablePhoto(photoId, memberId, thumbnail);
 
         return ResponseEntity.ok()
                 .contentType(contentTypeOf(file))
@@ -101,7 +88,7 @@ public class PhotoController {
                  * 새로고침해도 브라우저가 서버에 다시 묻지 않는다.
                  */
                 .cacheControl(CacheControl.maxAge(Duration.ofDays(365)).cachePrivate().immutable())
-                .body(new FileSystemResource(file));
+                .body(file);
     }
 
     /**
@@ -111,8 +98,8 @@ public class PhotoController {
      * 그러면 브라우저가 그림으로 그리지 않고 내려받기로 처리하는데,
      * 엉뚱한 형식이라고 우기는 것보다는 낫다.
      */
-    private MediaType contentTypeOf(Path file) {
-        return MediaTypeFactory.getMediaType(file.getFileName().toString())
+    private MediaType contentTypeOf(Resource file) {
+        return MediaTypeFactory.getMediaType(file)
                 .orElse(MediaType.APPLICATION_OCTET_STREAM);
     }
 }
