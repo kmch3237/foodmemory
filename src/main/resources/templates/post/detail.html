@@ -34,11 +34,11 @@
               사진마다 원본 비율이 제각각이라 틀을 정사각으로 고정하고
               넘치는 부분만 잘라낸다. 늘리면 음식이 찌그러진다.
             -->
-            <div class="photo-frame" th:if="${!#lists.isEmpty(post.photoPaths)}">
+            <div class="photo-frame" th:if="${!#lists.isEmpty(post.photoIds)}">
                 <div class="photo-track">
-                    <img th:each="path, i : ${post.photoPaths}"
+                    <img th:each="photoId, i : ${post.photoIds}"
                          th:id="'photo-' + ${i.index}"
-                         th:src="@{${uploadUrlPrefix} + '/' + ${path}}" alt="음식 사진">
+                         th:src="@{'/photos/' + ${photoId}}" alt="음식 사진">
                 </div>
             </div>
 
@@ -46,13 +46,13 @@
               사진이 두 장 이상일 때만 점을 보여준다. 한 장이면 넘길 곳이 없다.
               점은 링크라서 누르면 그 사진 자리로 넘어간다. 자바스크립트가 필요 없다.
             -->
-            <div class="dots" th:if="${#lists.size(post.photoPaths) > 1}">
-                <a th:each="path, i : ${post.photoPaths}"
+            <div class="dots" th:if="${#lists.size(post.photoIds) > 1}">
+                <a th:each="photoId, i : ${post.photoIds}"
                    th:href="'#photo-' + ${i.index}"
                    th:title="${i.index + 1} + '번째 사진'"></a>
             </div>
 
-            <p class="empty" th:if="${#lists.isEmpty(post.photoPaths)}">사진이 없습니다.</p>
+            <p class="empty" th:if="${#lists.isEmpty(post.photoIds)}">사진이 없습니다.</p>
 
             <p>
                 <strong th:text="${post.writerNickname}">닉네임</strong>

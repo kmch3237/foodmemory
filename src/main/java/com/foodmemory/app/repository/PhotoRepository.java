@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface PhotoRepository extends JpaRepository<Photo, Long> {
 
@@ -33,6 +34,25 @@ public interface PhotoRepository extends JpaRepository<Photo, Long> {
      * photo_id 오름차순이 곧 업로드 순서다. 별도의 순서 컬럼을 두지 않은 이유이기도 하다.
      */
     List<Photo> findByPostPostIdOrderByPhotoIdAsc(Long postId);
+
+    /**
+     * 사진 한 장을 게시물·작성자·공간까지 한 번에 가져온다.
+     *
+     * 사진을 내보내기 전에 볼 권한이 있는지 확인하는데, 그 확인이
+     * 게시물의 주인(member)과 공간(space)을 본다. 셋 다 LAZY 라 그냥 꺼내면
+     * 사진 한 장에 쿼리가 네 번 나간다. 목록 한 페이지가 사진 12장이니 48번이 된다.
+     *
+     * space 가 left join 인 이유: 개인 기록은 공간이 없다(NULL).
+     * 그냥 join 으로 쓰면 개인 기록의 사진이 한 장도 조회되지 않는다.
+     */
+    @Query("""
+            select ph from Photo ph
+            join fetch ph.post p
+            join fetch p.member
+            left join fetch p.space
+            where ph.photoId = :photoId
+            """)
+    Optional<Photo> findWithPostById(@Param("photoId") Long photoId);
 
     /**
      * 아직 작은 사본이 없는 사진을 가져온다. 뒤늦게 만들어 붙일 때 쓴다.

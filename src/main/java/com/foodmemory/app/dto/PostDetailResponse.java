@@ -46,10 +46,16 @@ public record PostDetailResponse(
         Long spaceId,
         String spaceName,
 
-        List<String> photoPaths      // 올린 순서대로. 비어 있을 수 있다
+        /**
+         * 사진 번호들. 올린 순서대로이고, 비어 있을 수 있다.
+         *
+         * 경로가 아니라 번호인 이유는 PostListResponse 와 같다.
+         * 화면은 /photos/{번호} 를 부르고 그때마다 볼 권한을 다시 확인한다.
+         */
+        List<Long> photoIds
 ) {
 
-    public static PostDetailResponse from(Post post, List<String> photoPaths) {
+    public static PostDetailResponse from(Post post, List<Long> photoIds) {
         return new PostDetailResponse(
                 post.getPostId(),
                 post.getContent(),
@@ -60,7 +66,7 @@ public record PostDetailResponse(
                 post.getPlace() != null ? post.getPlace().getAddress() : null,
                 post.getSpace() != null ? post.getSpace().getSpaceId() : null,
                 post.getSpace() != null ? post.getSpace().getName() : null,
-                photoPaths
+                photoIds
         );
     }
 }
