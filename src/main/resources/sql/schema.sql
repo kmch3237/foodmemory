@@ -311,11 +311,9 @@ CREATE TABLE post (
     -- DATE 가 아니라 DATETIME 인 이유: 같은 날 아침·점심·저녁의 순서를 지킨다.
     eaten_date     DATETIME      NOT NULL                 COMMENT '먹은 시각 (갤러리 정렬 기준)',
 
-    -- MySQL 의 BOOLEAN 은 TINYINT(1) 의 별칭이며 0/1 로 저장된다.
-    -- 자바 boolean 필드와 JPA 가 바로 매핑되어 변환기가 필요 없다.
-    -- DEFAULT FALSE : 명시하지 않고 등록된 게시물은 비공개가 된다.
-    --   공유 기능이 없는 MVP 단계에서 실수로 공개되는 것을 막는 안전한 기본값.
-    is_public      BOOLEAN       NOT NULL DEFAULT FALSE   COMMENT '공개 여부',
+    -- is_public 은 여기 있었지만 지웠다(2026-09-20).
+    -- 한 번도 읽히지 않았고, 공개 범위는 실제로는 space_id 가 정한다.
+    -- 이미 만들어진 DB 에서는 ALTER TABLE post DROP COLUMN is_public; 으로 지운다.
 
     created_at     DATETIME      NOT NULL                 COMMENT '저장 시각',
     updated_at     DATETIME      NOT NULL                 COMMENT '마지막 수정 시각',
