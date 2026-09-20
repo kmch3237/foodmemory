@@ -79,6 +79,19 @@ jobs:
         run: |
           ssh -i ~/.ssh/deploy_key ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
             set -e
+            # 덮어쓰기 전에 지금 돌아가는 것을 복사해둔다.
+            #
+            # mv 는 덮어쓰기라, 이 줄이 없으면 직전 앱이 그 자리에서 사라진다.
+            # 그러면 배포한 것이 잘못됐을 때 되돌릴 방법이 코드를 반대로 고쳐
+            # 다시 push 하는 것뿐인데, 빌드부터 새로 하니 3분이 걸린다.
+            # 그동안 사이트는 이상한 상태로 열려 있다.
+            #
+            # 이 한 줄이 있으면 서버에서 두 줄로 30초면 돌아간다.
+            #   cp /home/ubuntu/app/app.jar.prev /home/ubuntu/app/app.jar
+            #   sudo systemctl restart foodmemory
+            #
+            # 첫 배포 때는 app.jar 가 없을 수 있으므로 없으면 그냥 넘어간다.
+            [ -f /home/ubuntu/app/app.jar ] && cp /home/ubuntu/app/app.jar /home/ubuntu/app/app.jar.prev || true
             mv /home/ubuntu/app/app.jar.new /home/ubuntu/app/app.jar
             sudo systemctl restart foodmemory
           EOF
