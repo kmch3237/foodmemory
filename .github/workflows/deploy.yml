@@ -85,17 +85,24 @@ jobs:
 
       # 재시작했다고 뜬 것은 아니다. 실제로 응답하는지 확인해야
       # 배포가 성공했는지 알 수 있다.
+      #
+      # 서버 안에 들어가서 127.0.0.1:8080 으로 묻는다.
+      # 예전에는 바깥에서 http://서버:8080 으로 물었는데, 앱이 이제
+      # 같은 서버 안의 연결만 받으므로(application-prod.yml 의 server.address)
+      # 바깥에서 물으면 앱이 멀쩡해도 영영 실패한다.
       - name: 살아났는지 확인
         run: |
-          for i in $(seq 1 24); do
-            code=$(curl -s -o /dev/null -m 5 -w "%{http_code}" \
-                   http://${{ secrets.EC2_HOST }}:8080/login || echo 000)
-            if [ "$code" = "200" ]; then
-              echo "배포 완료 (HTTP $code)"
-              exit 0
-            fi
-            echo "기다리는 중... ($i/24, 지금 $code)"
-            sleep 5
-          done
-          echo "앱이 응답하지 않는다. 서버 로그를 봐야 한다."
-          exit 1
+          ssh -i ~/.ssh/deploy_key ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
+            for i in $(seq 1 24); do
+              code=$(curl -s -o /dev/null -m 5 -w "%{http_code}" \
+                     http://127.0.0.1:8080/login || echo 000)
+              if [ "$code" = "200" ]; then
+                echo "배포 완료 (HTTP $code)"
+                exit 0
+              fi
+              echo "기다리는 중... ($i/24, 지금 $code)"
+              sleep 5
+            done
+            echo "앱이 응답하지 않는다. 서버 로그를 봐야 한다."
+            exit 1
+          EOF
