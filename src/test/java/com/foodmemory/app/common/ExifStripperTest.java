@@ -16,6 +16,7 @@ import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Arrays;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -83,6 +84,23 @@ class ExifStripperTest {
         assertThat(stripper.needsStripping(file)).isFalse();
         assertThat(stripper.strip(file)).isFalse();
         assertThat(Files.readAllBytes(file)).isEqualTo(once);
+    }
+
+    /**
+     * 운영에서는 nginx 가 사진을 직접 내보낸다. nginx 는 앱과 다른 사용자라,
+     * 파일이 주인만 읽을 수 있는 상태(600)가 되면 403 을 내고 사진이 빈 칸으로 뜬다.
+     * 실제로 그렇게 됐다(2026-09-20). 임시 파일이 600 으로 태어나는 것이 원인이었다.
+     */
+    @Test
+    @DisplayName("위치를 지워도 파일 권한은 그대로다 (nginx 가 읽을 수 있어야 한다)")
+    void keepsFilePermissions() throws Exception {
+        Path file = write("a.jpg", jpegWithExif(6));
+        Files.setPosixFilePermissions(file, PosixFilePermissions.fromString("rw-r--r--"));
+
+        assertThat(stripper.strip(file)).isTrue();
+
+        assertThat(Files.getPosixFilePermissions(file))
+                .isEqualTo(PosixFilePermissions.fromString("rw-r--r--"));
     }
 
     @Test
