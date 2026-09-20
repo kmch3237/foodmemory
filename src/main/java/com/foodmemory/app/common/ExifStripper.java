@@ -79,6 +79,7 @@ public class ExifStripper {
             Path temp = Files.createTempFile(file.getParent(), ".strip-", ".tmp");
             try {
                 Files.write(temp, stripped);
+                copyPermissions(file, temp);   // 바꿔 끼우기 전에. 뒤에 하면 이미 늦다
                 Files.move(temp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
             } finally {
                 Files.deleteIfExists(temp);
@@ -88,6 +89,30 @@ public class ExifStripper {
         } catch (Exception e) {
             log.warn("EXIF 를 걷어내지 못했습니다. 위치가 남아 있을 수 있습니다: {}", file.getFileName(), e);
             return false;
+        }
+    }
+
+    /**
+     * 원본의 읽기·쓰기 권한을 새 파일에 옮긴다. 바꿔 끼우기 '전에' 불러야 한다.
+     *
+     * ── 왜 필요한가 ──
+     *
+     * Files.createTempFile 이 만드는 파일은 주인만 읽을 수 있다(600).
+     * 업로드된 사진은 누구나 읽을 수 있다(644). 권한을 옮기지 않고 바꿔 끼우면
+     * 원본이 임시 파일의 600 을 물려받는다. 파일 내용이 아니라 권한만 조용히 바뀐다.
+     *
+     * 로컬에서는 앱이 사진을 직접 내보내므로 자기 파일이라 드러나지 않는다.
+     * 운영은 nginx 가 직접 내보내는데, nginx 는 앱과 다른 사용자라 600 파일을
+     * 읽지 못하고 403 을 낸다. 사진 자리가 빈 칸으로 뜬다.
+     * 2026-09-20 에 실제로 그렇게 됐고, 이미 쌓인 10장이 그렇게 잠겼다.
+     *
+     * 못 옮겨도 지우기 자체는 막지 않는다. 위치가 남는 편이 더 나쁘다.
+     */
+    private void copyPermissions(Path from, Path to) {
+        try {
+            Files.setPosixFilePermissions(to, Files.getPosixFilePermissions(from));
+        } catch (UnsupportedOperationException | IOException e) {
+            log.debug("파일 권한을 옮기지 못했습니다: {}", to.getFileName());
         }
     }
 
