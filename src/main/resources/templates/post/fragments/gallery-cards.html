@@ -20,12 +20,12 @@
           무한 스크롤은 사진이 계속 쌓이는 구조라, 이게 없으면 아직 보이지도 않는
           사진까지 전부 받느라 느려진다.
         -->
-        <img th:if="${post.thumbnailPath != null}"
+        <img th:if="${post.thumbnailPhotoId != null}"
              loading="lazy"
-             th:src="@{${uploadUrlPrefix} + '/' + ${post.thumbnailPath}}"
+             th:src="@{'/photos/' + ${post.thumbnailPhotoId} + '/thumb'}"
              th:alt="${#temporals.format(post.eatenDate, 'yyyy-MM-dd')} + ' 기록'">
 
-        <div th:if="${post.thumbnailPath == null}" class="no-photo">사진 없음</div>
+        <div th:if="${post.thumbnailPhotoId == null}" class="no-photo">사진 없음</div>
     </a>
 </th:block>
 

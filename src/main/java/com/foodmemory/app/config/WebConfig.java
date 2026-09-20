@@ -7,46 +7,36 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
-import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.ViewControllerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-import java.nio.file.Paths;
 import java.util.List;
 
 /**
- * 업로드된 사진을 브라우저가 볼 수 있게 연결한다.
- *
- * 파일을 서버 폴더에 저장하기만 하면 브라우저는 그 파일에 접근할 수 없다.
- * "/uploads/... 로 요청이 오면 이 폴더에서 찾아서 내보내라" 는 규칙이 필요하다.
+ * 로그인 검사와 @Login 주입을 붙이는 자리.
  *
  * 설정 3층의 두 번째 파일이다.
  * JpaConfig 와 마찬가지로, 자바 코드로만 표현할 수 있는 설정이라 여기에 둔다.
+ *
+ * ── 업로드된 사진은 왜 여기 없나 ──
+ *
+ * 전에는 "/uploads/... 로 오면 이 폴더에서 찾아 내보내라" 는 규칙이 여기 있었다.
+ * 그 통로에는 로그인 검사가 없어서, 주소만 알면 누구나 남의 사진을 받을 수 있었다.
+ * 지금은 PhotoController 가 /photos/{번호} 로 받아 볼 권한을 확인한 뒤 내보낸다.
+ *
+ * 그 규칙을 여기서 지운 것은 실수가 아니라 이 작업의 핵심이다.
+ * 되살리면 옛 주소가 다시 열려 검사를 우회하게 된다.
  */
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
-    private final String uploadPath;
-    private final String urlPrefix;
     private final LoginArgumentResolver loginArgumentResolver;
     private final MemberRepository memberRepository;
 
-    public WebConfig(@Value("${app.upload.path}") String uploadPath,
-                     @Value("${app.upload.url-prefix}") String urlPrefix,
-                     LoginArgumentResolver loginArgumentResolver,
+    public WebConfig(LoginArgumentResolver loginArgumentResolver,
                      MemberRepository memberRepository) {
-        this.uploadPath = uploadPath;
-        this.urlPrefix = urlPrefix;
         this.loginArgumentResolver = loginArgumentResolver;
         this.memberRepository = memberRepository;
-    }
-
-    @Override
-    public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        String location = "file:" + Paths.get(uploadPath).toAbsolutePath().normalize() + "/";
-
-        registry.addResourceHandler(urlPrefix + "/**")   // /uploads/** 로 들어오는 요청을
-                .addResourceLocations(location);          // 이 폴더에서 찾는다
     }
 
     /**
@@ -98,6 +88,7 @@ public class WebConfig implements WebMvcConfigurer {
                         "/posts/*/comments/**",    // 댓글 등록·수정·삭제
                         "/posts/*/places",         // 장소 후보 조회
                         "/posts/*/place",          // 장소 지정
+                        "/photos/**",              // 사진 파일 (원본·작은 사본)
                         "/spaces",                 // 공간 목록·생성
                         "/spaces/**",              // 공간 화면·참여·초대 코드
                         "/account",                // 계정 설정

@@ -119,12 +119,13 @@ public class PostServiceImpl implements PostService {
                     // 대표 사진은 photo_id 가 가장 작은 것, 즉 먼저 올린 사진이다.
                     // 쿼리에서 이미 오름차순 정렬했으므로 첫 번째를 쓰면 된다.
                     //
-                    // getDisplayPath() 는 작은 사본이 있으면 그것을, 없으면 원본을 준다.
-                    // 목록은 손톱만 한 칸에 그리므로 원본을 보낼 이유가 없다.
-                    String thumbnail = (photos == null || photos.isEmpty())
+                    // 경로가 아니라 번호를 넘긴다. 화면은 /photos/{id}/thumb 을 부르고
+                    // 그 자리에서 권한을 다시 확인한다. 작은 사본이냐 원본이냐는
+                    // 그때 getDisplayPath() 가 정한다.
+                    Long thumbnailPhotoId = (photos == null || photos.isEmpty())
                             ? null
-                            : photos.get(0).getDisplayPath();
-                    return PostListResponse.from(post, thumbnail);
+                            : photos.get(0).getPhotoId();
+                    return PostListResponse.from(post, thumbnailPhotoId);
                 })
                 .toList();
 
@@ -148,13 +149,36 @@ public class PostServiceImpl implements PostService {
         requireCanView(post, loginMemberId);
 
         // 쿼리 2 — 사진 전체. 목록과 달리 상세는 전부 필요하다.
-        List<String> photoPaths = photoRepository
+        //
+        // 경로가 아니라 번호를 넘긴다. 화면은 /photos/{id} 로 요청하고,
+        // 그때 다시 권한을 확인한다. 경로를 넘기면 그 주소가 곧 열쇠가 되어
+        // 한 번 새어나간 주소를 영영 막을 수 없다.
+        List<Long> photoIds = photoRepository
                 .findByPostPostIdOrderByPhotoIdAsc(postId)
                 .stream()
-                .map(Photo::getFilePath)
+                .map(Photo::getPhotoId)
                 .toList();
 
-        return PostDetailResponse.from(post, photoPaths);
+        return PostDetailResponse.from(post, photoIds);
+    }
+
+    /**
+     * 사진 한 장의 경로를 권한 확인과 함께 꺼낸다.
+     *
+     * 게시물을 볼 수 있으면 그 사진도 볼 수 있다. 규칙을 새로 만들지 않고
+     * requireCanView 를 그대로 쓴다. 규칙이 두 벌이면 언젠가 어긋난다.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public String getViewablePhotoPath(Long photoId, Long loginMemberId, boolean thumbnail) {
+        Photo photo = photoRepository.findWithPostById(photoId)
+                .orElseThrow(() -> new NotFoundException("존재하지 않는 사진입니다."));
+
+        requireCanView(photo.getPost(), loginMemberId);
+
+        // getDisplayPath() 는 작은 사본이 있으면 그것을, 없으면 원본을 준다.
+        // HEIC 처럼 사본을 못 만든 사진도 목록에서 빈칸이 되지 않는다.
+        return thumbnail ? photo.getDisplayPath() : photo.getFilePath();
     }
 
     /**

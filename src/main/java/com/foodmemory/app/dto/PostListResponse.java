@@ -21,17 +21,22 @@ public record PostListResponse(
         LocalDateTime eatenDate,
         String writerNickname,
         String placeName,
-        String thumbnailPath   // 대표 사진의 상대 경로. 사진이 없으면 null
+        Long thumbnailPhotoId   // 대표 사진의 번호. 사진이 없으면 null
 ) {
 
     /**
      * 엔티티를 DTO 로 변환한다. 반드시 트랜잭션 안에서 호출한다.
      *
-     * thumbnailPath 를 밖에서 받는 이유:
+     * thumbnailPhotoId 를 밖에서 받는 이유:
      *   사진은 게시물 하나에 여러 장 붙는 컬렉션이라 게시물과 함께 조회하면
      *   행이 중복된다. 그래서 사진은 따로 조회해 Service 에서 짝지어 넘겨준다.
+     *
+     * 경로가 아니라 번호인 이유:
+     *   화면은 /photos/{번호}/thumb 을 부르고, 그 요청마다 볼 권한을 다시 확인한다.
+     *   경로를 그대로 내보내면 그 주소를 아는 사람은 누구나 사진을 받을 수 있고,
+     *   방에서 나가거나 탈퇴한 뒤에도 그대로 열린다.
      */
-    public static PostListResponse from(Post post, String thumbnailPath) {
+    public static PostListResponse from(Post post, Long thumbnailPhotoId) {
         return new PostListResponse(
                 post.getPostId(),
                 post.getContent(),
@@ -39,7 +44,7 @@ public record PostListResponse(
                 post.getMember().getNickname(),
                 // 장소는 없을 수 있다. NULL 을 허용한 컬럼이므로 여기서 반드시 확인한다
                 post.getPlace() != null ? post.getPlace().getName() : null,
-                thumbnailPath
+                thumbnailPhotoId
         );
     }
 }

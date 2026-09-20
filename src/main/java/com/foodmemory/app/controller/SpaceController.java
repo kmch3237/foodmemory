@@ -8,7 +8,6 @@ import com.foodmemory.app.dto.GallerySort;
 import com.foodmemory.app.service.PostService;
 import com.foodmemory.app.service.SpaceService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,9 +28,6 @@ public class SpaceController {
 
     private final SpaceService spaceService;
     private final PostService postService;
-
-    @Value("${app.upload.url-prefix}")
-    private String uploadUrlPrefix;
 
     /** 내가 참여 중인 공간 목록. */
     @GetMapping("/spaces")
@@ -126,7 +122,6 @@ public class SpaceController {
 
         model.addAttribute("posts", page.posts());
         model.addAttribute("spaceId", spaceId);
-        model.addAttribute("uploadUrlPrefix", uploadUrlPrefix);
         return "space/detail";
     }
 

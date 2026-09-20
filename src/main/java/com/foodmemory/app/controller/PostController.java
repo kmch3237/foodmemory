@@ -9,7 +9,6 @@ import com.foodmemory.app.service.PostService;
 import com.foodmemory.app.service.SpaceService;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -30,13 +29,6 @@ public class PostController {
     private final PostService postService;
     private final SpaceService spaceService;
     private final CommentService commentService;
-
-    /**
-     * 사진 주소의 앞부분. DB 에는 저장하지 않고 화면에서 붙인다.
-     * 나중에 S3 로 바꾸면 설정 파일의 이 값만 바꾸면 된다.
-     */
-    @Value("${app.upload.url-prefix}")
-    private String uploadUrlPrefix;
 
     /**
      * 내 갤러리. 첫 페이지만 그리고, 나머지는 스크롤에 따라 이어붙인다.
@@ -64,7 +56,6 @@ public class PostController {
                 loginMember.memberId(), 0, PostService.PREVIEW_SIZE, GallerySort.UPLOADED);
 
         model.addAttribute("posts", page.posts());
-        model.addAttribute("uploadUrlPrefix", uploadUrlPrefix);
         return "post/list";
     }
 
@@ -107,7 +98,6 @@ public class PostController {
                                               PostService.FULL_PAGE_SIZE, gallerySort);
 
         model.addAttribute("posts", galleryPage.posts());
-        model.addAttribute("uploadUrlPrefix", uploadUrlPrefix);
         response.setHeader("X-Has-Next", String.valueOf(galleryPage.hasNext()));
 
         return "post/fragments/gallery-cards :: cards";
@@ -147,7 +137,6 @@ public class PostController {
         model.addAttribute("hasNext", page.hasNext());
         model.addAttribute("nextPage", page.nextPage());
         model.addAttribute("spaceId", spaceId);
-        model.addAttribute("uploadUrlPrefix", uploadUrlPrefix);
 
         // 지금 어떤 순서로 보고 있는지. 고르는 칸이 이 값으로 어느 쪽을 켤지 정한다.
         model.addAttribute("sort", gallerySort.code());
@@ -207,7 +196,6 @@ public class PostController {
                 commentService.findByPost(postId, loginMemberId(loginMember), commentPage));
 
         model.addAttribute("loginMember", loginMember);
-        model.addAttribute("uploadUrlPrefix", uploadUrlPrefix);
         return "post/detail";
     }
 
